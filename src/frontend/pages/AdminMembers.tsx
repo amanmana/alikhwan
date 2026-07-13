@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useParams } from "react-router-dom";
 import {
   Users,
   Search,
@@ -19,6 +19,7 @@ import {
   ChevronRight,
   MapPin,
   CircleOff,
+  Download,
 } from "lucide-react";
 import Header from "../components/Header.tsx";
 import { AdminMobileNav } from "./AdminDashboard.tsx";
@@ -31,8 +32,17 @@ import {
 
 type EditableMembershipStatus = "active" | "inactive" | "moved" | "deceased";
 
-export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
+export default function AdminMembers({
+  onLogout,
+  initialStatus = "",
+  pageTitle = "Urus Ahli Kariah",
+}: {
+  onLogout: () => void;
+  initialStatus?: string;
+  pageTitle?: string;
+}) {
   const navigate = useNavigate();
+  const { memberId } = useParams<{ memberId: string }>();
 
   const statusLabel = (s: string) =>
     ({
@@ -42,7 +52,6 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
       rejected: "Ditolak",
       moved: "Berpindah",
       deceased: "Meninggal Dunia",
-      needs_review: "Perlu Semakan",
     })[s] ?? s;
 
   const actionLabel = (action: string) =>
@@ -79,11 +88,12 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
   const [query, setQuery] = useState("");
   const [icQuery, setIcQuery] = useState("");
   const [phoneQuery, setPhoneQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [accountFilter, setAccountFilter] = useState("");
   const [sortField, setSortField] = useState("name");
   const [sortOrder, setSortOrder] = useState("ASC");
   const [page, setPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Selected Member Details Modal / Drawer
   const [selectedMember, setSelectedMember] = useState<any>(null);
@@ -144,6 +154,87 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
     }
   };
 
+  const buildExportUrl = () => {
+    const params = new URLSearchParams({ sortBy: sortField, sortOrder });
+    if (query.trim().length >= 2) params.set("q", query.trim());
+    if (icQuery.trim()) params.set("ic", icQuery.trim());
+    if (phoneQuery.trim()) params.set("phone", phoneQuery.trim());
+    if (statusFilter) params.set("status", statusFilter);
+    if (accountFilter) params.set("accountState", accountFilter);
+    return `/api/admin/members/export?${params.toString()}`;
+  };
+
+  const createExcelFile = async () => {
+    const res = await adminFetch(buildExportUrl());
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Gagal menyediakan fail Excel.");
+    }
+
+    const csvCell = (value: unknown) => {
+      const raw = value == null ? "" : String(value);
+      const safe = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
+    const headers = [
+      "Nama Penuh",
+      "No. IC",
+      "No. Telefon",
+      "Alamat",
+      "Kawasan",
+      "Status Keahlian",
+      "Status Akaun",
+      "Direktori",
+      "Tarikh Daftar",
+    ];
+    const rows = (data.members || []).map((member: any) => [
+      member.full_name,
+      member.ic_normalized
+        ? formatIcForDisplay(member.ic_normalized)
+        : "Belum Dituntut",
+      member.phone_normalized
+        ? formatPhoneForDisplay(member.phone_normalized)
+        : "Belum Dituntut",
+      member.address,
+      member.general_area || "",
+      statusLabel(member.membership_status),
+      accountStateLabel(member.account_state),
+      member.directory_visible === 1 ? "Dipaparkan" : "Tersembunyi",
+      member.created_at
+        ? new Date(member.created_at).toLocaleDateString("ms-MY")
+        : "",
+    ]);
+    const csv = `\uFEFF${[headers, ...rows]
+      .map((row) => row.map(csvCell).join(","))
+      .join("\r\n")}`;
+    const date = new Date().toISOString().slice(0, 10);
+    return new File([csv], `senarai-ahli-kariah-${date}.csv`, {
+      type: "text/csv;charset=utf-8",
+    });
+  };
+
+  const downloadFile = (file: File) => {
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadExcel = async () => {
+    setIsExporting(true);
+    try {
+      downloadFile(await createExcelFile());
+    } catch (err: any) {
+      alert(err.message || "Gagal memuat turun fail Excel.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
@@ -197,10 +288,31 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
     }
   };
 
+  useEffect(() => {
+    if (memberId) {
+      viewMemberDetail(memberId);
+    }
+  }, [memberId]);
+
+  const closeMemberDetail = () => {
+    setSelectedMember(null);
+    setSelectedAccount(null);
+    setIsEditing(false);
+    setActionType(null);
+    setActionReason("");
+    setSetStatusValue(null);
+    setResetCodeResult(null);
+    setDeleteConfirmation("");
+
+    if (memberId) {
+      navigate("/admin/ahli", { replace: true });
+    }
+  };
+
   const handleActionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!actionReason.trim()) {
-      alert("Sebab tindakan wajib diisi untuk tujuan audit keselamatan.");
+    if (actionType !== "delete" && !actionReason.trim()) {
+      alert("Sebab tindakan wajib diisi sebelum meneruskan.");
       return;
     }
 
@@ -246,7 +358,6 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
       }
       method = "DELETE";
       body = {
-        reason: actionReason,
         confirmationName: deleteConfirmation,
       };
     }
@@ -266,11 +377,7 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
         setResetCodeResult(data);
       } else {
         alert(data.message || "Tindakan berjaya diproses.");
-        setSelectedMember(null);
-        setIsEditing(false);
-        setActionType(null);
-        setActionReason("");
-        setDeleteConfirmation("");
+        closeMemberDetail();
         fetchMembers(); // refresh
       }
     } catch (err: any) {
@@ -287,13 +394,28 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
         <Sidebar onLogout={onLogout} />
 
         <main className="flex-1 p-4 sm:p-6 max-w-6xl mx-auto w-full space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg sm:text-xl font-bold text-brand-primary">
-              Urus Ahli Kariah
+              {pageTitle}
             </h2>
-            {loading && (
-              <RefreshCw className="w-5 h-5 text-brand-primary animate-spin" />
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadExcel}
+                disabled={isExporting}
+                className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-brand-primary bg-white px-3 py-2 text-xs font-bold text-brand-primary hover:bg-teal-50 disabled:opacity-50"
+              >
+                {isExporting ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Download Excel
+              </button>
+              {loading && (
+                <RefreshCw className="h-5 w-5 animate-spin text-brand-primary" />
+              )}
+            </div>
           </div>
 
           {/* Filtering Toolbar */}
@@ -348,7 +470,6 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
                 <option value="rejected">Ditolak</option>
                 <option value="moved">Berpindah</option>
                 <option value="deceased">Meninggal Dunia</option>
-                <option value="needs_review">Perlu Semakan</option>
               </select>
 
               {/* Account State filter */}
@@ -556,7 +677,8 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
                     Butiran Rekod Kariah
                   </h3>
                   <button
-                    onClick={() => setSelectedMember(null)}
+                    onClick={closeMemberDetail}
+                    aria-label="Tutup butiran ahli"
                     className="p-1.5 text-brand-muted hover:text-brand-text rounded-full"
                   >
                     <X className="w-5 h-5" />
@@ -582,7 +704,8 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
                         {actionLabel(actionType)}
                       </h4>
                       <p className="text-xs text-brand-muted">
-                        Semua perubahan direkodkan dalam log audit pentadbir.
+                        Sila pastikan tindakan dan sebab yang dipilih adalah
+                        betul sebelum meneruskan.
                       </p>
                     </div>
 
@@ -704,8 +827,8 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
                               Pemadaman ini tidak boleh dibatalkan
                             </p>
                             <p className="text-[10px] text-red-700 mt-1 leading-relaxed">
-                              Hanya rekod import lama yang belum dituntut boleh
-                              dipadam. Log audit tindakan ini akan dikekalkan.
+                              Rekod ahli, akaun dan sesi berkaitan akan dipadam.
+                              Pastikan ahli yang dipilih adalah betul.
                             </p>
                           </div>
                         </div>
@@ -733,27 +856,29 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
                       </div>
                     )}
 
-                    <div className="space-y-1">
-                      <label
-                        htmlFor="action-reason"
-                        className="block text-xs font-bold text-brand-text"
-                      >
-                        Sebab / Catatan Audit
-                      </label>
-                      <textarea
-                        id="action-reason"
-                        required
-                        rows={3}
-                        placeholder={
-                          actionType === "set-status"
-                            ? "Contoh: Pembetulan status berdasarkan pengesahan ahli"
-                            : "Masukkan sebab tindakan..."
-                        }
-                        value={actionReason}
-                        onChange={(e) => setActionReason(e.target.value)}
-                        className="w-full px-3 py-2 bg-brand-background border border-gray-300 rounded-lg text-xs"
-                      ></textarea>
-                    </div>
+                    {actionType !== "delete" && (
+                      <div className="space-y-1">
+                        <label
+                          htmlFor="action-reason"
+                          className="block text-xs font-bold text-brand-text"
+                        >
+                          Sebab / Catatan Tindakan
+                        </label>
+                        <textarea
+                          id="action-reason"
+                          required
+                          rows={3}
+                          placeholder={
+                            actionType === "set-status"
+                              ? "Contoh: Pembetulan status berdasarkan pengesahan ahli"
+                              : "Masukkan sebab tindakan..."
+                          }
+                          value={actionReason}
+                          onChange={(e) => setActionReason(e.target.value)}
+                          className="w-full px-3 py-2 bg-brand-background border border-gray-300 rounded-lg text-xs"
+                        ></textarea>
+                      </div>
+                    )}
 
                     {actionType === "reset-code" && resetCodeResult && (
                       <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 text-center space-y-1">
@@ -1087,37 +1212,37 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
                       </div>
                     </section>
 
-                    {selectedMember.registration_source === "legacy_import" &&
-                      selectedMember.account_state === "unclaimed" &&
-                      !selectedAccount && (
-                        <section className="rounded-xl border border-red-200 bg-red-50 p-4">
-                          <div className="flex items-start gap-3">
-                            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-danger" />
-                            <div>
-                              <h4 className="font-bold text-brand-danger">
-                                Zon Bahaya
-                              </h4>
-                              <p className="mt-1 text-[10px] leading-relaxed text-red-700">
-                                Hanya untuk rekod import tersalah atau pendua
-                                yang belum dituntut. Pemadaman tidak boleh
-                                dibatalkan.
-                              </p>
-                            </div>
+                    {(selectedMember.membership_status === "inactive" ||
+                      (selectedMember.registration_source === "legacy_import" &&
+                        selectedMember.account_state === "unclaimed" &&
+                        !selectedAccount)) && (
+                      <section className="rounded-xl border border-red-200 bg-red-50 p-4">
+                        <div className="flex items-start gap-3">
+                          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-danger" />
+                          <div>
+                            <h4 className="font-bold text-brand-danger">
+                              Zon Bahaya
+                            </h4>
+                            <p className="mt-1 text-[10px] leading-relaxed text-red-700">
+                              Ahli Tidak Aktif boleh dipadam bersama akaun dan
+                              sesi berkaitan. Pemadaman tidak boleh dibatalkan.
+                            </p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDeleteConfirmation("");
-                              setActionReason("");
-                              setActionType("delete");
-                            }}
-                            className="mt-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-3 py-2 font-bold text-brand-danger hover:bg-red-100"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Padam Rekod Kekal
-                          </button>
-                        </section>
-                      )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteConfirmation("");
+                            setActionReason("");
+                            setActionType("delete");
+                          }}
+                          className="mt-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-3 py-2 font-bold text-brand-danger hover:bg-red-100"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Padam Rekod Kekal
+                        </button>
+                      </section>
+                    )}
                   </div>
                 )}
               </div>

@@ -84,10 +84,7 @@ export default function PrivacyNotice() {
                 Menghantar pengumuman penting, urusan kebajikan, atau bantuan
                 kariah.
               </li>
-              <li>
-                Tujuan keselamatan, audit dalaman sistem, dan pengesahan log
-                pentadbir.
-              </li>
+              <li>Tujuan keselamatan sistem dan pengesahan pentadbir.</li>
             </ul>
           </section>
 
@@ -107,11 +104,6 @@ export default function PrivacyNotice() {
               <li>
                 <strong>Permohonan Ditolak/Dibatalkan:</strong> Dipadamkan
                 secara kekal selepas tempoh 90 hari.
-              </li>
-              <li>
-                <strong>Log Audit Keselamatan:</strong> Disimpan selama 1 tahun
-                sahaja untuk mengesan sebarang cubaan pecah amanah data sebelum
-                dipadamkan.
               </li>
               <li>
                 <strong>Hak untuk Dilupakan:</strong> Ahli berhak meminta

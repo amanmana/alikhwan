@@ -21,7 +21,11 @@ app.use("*", async (c, next) => {
   c.header("X-Frame-Options", "DENY");
 
   // No-store cache on sensitive APIs
-  if (c.req.path.startsWith("/api/me") || c.req.path.startsWith("/api/admin")) {
+  if (
+    c.req.path.startsWith("/api/auth") ||
+    c.req.path.startsWith("/api/me") ||
+    c.req.path.startsWith("/api/admin")
+  ) {
     c.header(
       "Cache-Control",
       "no-store, no-cache, must-revalidate, proxy-revalidate",

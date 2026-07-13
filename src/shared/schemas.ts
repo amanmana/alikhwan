@@ -49,6 +49,25 @@ export const loginSchema = z.object({
   password: z.string().min(1, { message: "Kata laluan diperlukan." }),
 });
 
+export const passwordResetSchema = z
+  .object({
+    ic: z.string().refine((val) => /^\d{12}$/.test(val.replace(/[\s-]/g, "")), {
+      message: "No. IC mestilah mengandungi 12 digit.",
+    }),
+    phone: phoneSchema,
+    newPassword: passwordSchema,
+    confirmNewPassword: z
+      .string()
+      .min(1, { message: "Pengesahan kata laluan baharu diperlukan." }),
+    turnstileToken: z
+      .string()
+      .min(1, { message: "Sila lengkapkan pengesahan keselamatan." }),
+  })
+  .refine((data) => data.newPassword === data.confirmNewPassword, {
+    message: "Kata laluan baharu dan pengesahan tidak sepadan.",
+    path: ["confirmNewPassword"],
+  });
+
 // 6. Registration Schema (Combined)
 export const registrationSchema = z
   .object({
@@ -116,8 +135,8 @@ export const accountClaimSchema = z
     path: ["confirmPassword"],
   });
 
-// 9. Profile Correction Schema
-export const profileCorrectionSchema = z.object({
+// 9. Profile Update Schema
+export const profileUpdateSchema = z.object({
   fullName: z
     .string()
     .min(3, { message: "Nama penuh mestilah sekurang-kurangnya 3 aksara." })

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { setCookie } from "hono/cookie";
-import { Bindings, createAuditLog } from "../db.ts";
+import { Bindings } from "../db.ts";
 import { verifyTurnstile, rateLimiter } from "../middleware.ts";
 import {
   cleanIc,
@@ -121,7 +121,7 @@ app.get("/members", rateLimiter("public-search", 40, 60), async (c) => {
   }
 });
 
-// 1b. GET /api/public/legacy-search (Search unclaimed legacy profiles)
+// 1b. GET /api/public/legacy-search (Search legacy profiles and their claim state)
 app.get("/legacy-search", rateLimiter("legacy-search", 20, 60), async (c) => {
   const q = c.req.query("q") || "";
   if (q.trim().length < 2) {
@@ -131,28 +131,62 @@ app.get("/legacy-search", rateLimiter("legacy-search", 20, 60), async (c) => {
     const cleaned = q.replace(/[^\p{L}\p{N}\s]/gu, "").trim();
     const queryWithWildcard = `${cleaned}*`;
     const results = await c.env.DB.prepare(
-      `SELECT id, full_name, address 
+      `SELECT id, full_name, address, account_state
        FROM members 
        WHERE id IN (SELECT member_id FROM members_fts WHERE members_fts MATCH ?)
-         AND account_state = 'unclaimed'
-       LIMIT 10`,
+         AND registration_source = 'legacy_import'
+       ORDER BY full_name COLLATE NOCASE ASC`,
     )
       .bind(queryWithWildcard)
       .all()
       .then((res) => res.results);
 
-    const safeMembers = results.map((m: any) => ({
-      id: m.id,
-      fullName: m.full_name,
-      // Strip exact house number for privacy: e.g. "No. 33 Jalan PUJ 2/2" -> "Jalan PUJ 2/2"
-      address: m.address ? m.address.replace(/^No\.\s*\d+/i, "").trim() : "",
-    }));
+    const safeMembers = results.map((m: any) => {
+      if (m.account_state !== "unclaimed") {
+        return {
+          fullName: m.full_name,
+          claimState: "claimed",
+        };
+      }
+
+      return {
+        id: m.id,
+        fullName: m.full_name,
+        claimState: "claimable",
+        // Strip exact house number for privacy: e.g. "No. 33 Jalan PUJ 2/2" -> "Jalan PUJ 2/2"
+        address: m.address ? m.address.replace(/^No\.\s*\d+/i, "").trim() : "",
+      };
+    });
 
     return c.json({ members: safeMembers });
   } catch (err) {
     return c.json({ error: "Ralat semasa carian rekod ahli lama." }, 500);
   }
 });
+
+// 1c. GET /api/public/legacy-claim-status/:id
+// Revalidate a profile selected from the legacy search before rendering the claim form.
+app.get(
+  "/legacy-claim-status/:id",
+  rateLimiter("legacy-claim-status", 30, 60),
+  async (c) => {
+    try {
+      const member = await c.env.DB.prepare(
+        `SELECT account_state
+         FROM members
+         WHERE id = ? AND registration_source = 'legacy_import'`,
+      )
+        .bind(c.req.param("id"))
+        .first<any>();
+
+      return c.json({
+        claimable: member?.account_state === "unclaimed",
+      });
+    } catch {
+      return c.json({ error: "Ralat semasa mengesahkan rekod lama." }, 500);
+    }
+  },
+);
 
 // 2. POST /api/public/membership-check (Membership Check)
 app.post(
@@ -315,13 +349,21 @@ app.post("/register", rateLimiter("register", 5, 60), async (c) => {
     const nowStr = new Date().toISOString();
     const icLast4 = cleanedIc.substring(8);
     const hashedPassword = await hashPassword(password);
+    const approvalSetting = await c.env.DB.prepare(
+      `SELECT value
+       FROM system_settings
+       WHERE key = 'registration_approval_mode'`,
+    ).first<any>();
+    const isAutoApproved = approvalSetting?.value === "automatic";
+    const membershipStatus = isAutoApproved ? "active" : "pending";
 
     const insertMember = c.env.DB.prepare(
       `INSERT INTO members (
         id, legacy_id, full_name, full_name_normalized, ic_normalized, ic_last4, birth_date,
         phone_normalized, address, general_area, membership_status, account_state,
-        directory_visible, directory_consent_at, registration_source, created_at, updated_at
-      ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'active', ?, ?, 'public_registration', ?, ?)`,
+        directory_visible, directory_consent_at, registration_source, created_at, updated_at,
+        approved_at, approved_by
+      ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, 'public_registration', ?, ?, ?, ?)`,
     ).bind(
       memberId,
       fullName,
@@ -332,10 +374,13 @@ app.post("/register", rateLimiter("register", 5, 60), async (c) => {
       cleanedPhone,
       address,
       generalArea || null,
+      membershipStatus,
       directoryConsent ? 1 : 0,
       directoryConsent ? nowStr : null,
       nowStr,
       nowStr,
+      isAutoApproved ? nowStr : null,
+      isAutoApproved ? "system:auto-approval" : null,
     );
 
     const insertAccount = c.env.DB.prepare(
@@ -386,25 +431,15 @@ app.post("/register", rateLimiter("register", 5, 60), async (c) => {
       maxAge: 30 * 24 * 60 * 60,
     });
 
-    // Write audit log
-    await createAuditLog(
-      c.env.DB,
-      "member",
-      memberId,
-      "REGISTRATION_CREATE",
-      "members",
-      memberId,
-      JSON.stringify({ fullName, username }),
-      "Pendaftaran ahli baru secara awam",
-    );
-
     return c.json({
       success: true,
-      message: "Pendaftaran diterima dan sedang menunggu pengesahan admin.",
+      message: isAutoApproved
+        ? "Pendaftaran berjaya dan keahlian anda telah diluluskan secara automatik."
+        : "Pendaftaran diterima dan sedang menunggu pengesahan admin.",
       member: {
         id: memberId,
         fullName,
-        membershipStatus: "pending",
+        membershipStatus,
       },
     });
   } catch (err) {
@@ -563,18 +598,6 @@ app.post("/account-claim", rateLimiter("claim", 5, 60), async (c) => {
     ).bind(nowStr, member.id);
 
     await c.env.DB.batch([insertClaim, updateMemberState]);
-
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "member",
-      member.id,
-      "CLAIM_SUBMIT",
-      "account_claims",
-      claimId,
-      JSON.stringify({ username, referenceCode }),
-      "Tuntutan akaun ahli lama diserahkan",
-    );
 
     return c.json({
       success: true,

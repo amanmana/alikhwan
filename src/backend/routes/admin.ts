@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { setCookie, deleteCookie, getCookie } from "hono/cookie";
-import { Bindings, createAuditLog } from "../db.ts";
+import { Bindings } from "../db.ts";
 import {
   verifyAdminKeyword,
   generateSessionToken,
@@ -38,17 +38,6 @@ app.post("/login", rateLimiter("admin-login", 5, 60), async (c) => {
     c.env.ADMIN_MAGIC_KEYWORD,
   );
   if (!isKeywordCorrect) {
-    // Write failure audit log
-    await createAuditLog(
-      c.env.DB,
-      "system",
-      null,
-      "ADMIN_LOGIN_FAILURE",
-      "admin_sessions",
-      null,
-      JSON.stringify({ deviceLabel }),
-      "Cubaan log masuk pentadbir dengan kata kunci salah",
-    );
     return c.json({ error: "Kata kunci tidak sah." }, 400);
   }
 
@@ -84,18 +73,6 @@ app.post("/login", rateLimiter("admin-login", 5, 60), async (c) => {
       maxAge: 180 * 24 * 60 * 60,
     });
 
-    // Write audit log
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      sessionId,
-      "ADMIN_LOGIN_SUCCESS",
-      "admin_sessions",
-      sessionId,
-      JSON.stringify({ deviceLabel }),
-      "Pendaftaran peranti pentadbir berjaya",
-    );
-
     return c.json({
       success: true,
       message: "Daftar masuk pentadbir berjaya.",
@@ -128,17 +105,6 @@ app.post("/logout", async (c) => {
       secure: true,
       sameSite: "Strict",
     });
-
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      adminSessionId,
-      "ADMIN_LOGOUT",
-      "admin_sessions",
-      adminSessionId,
-      null,
-      "Pentadbir log keluar peranti",
-    );
 
     return c.json({ success: true });
   } catch (err) {
@@ -185,13 +151,9 @@ app.get("/dashboard", async (c) => {
     const pendingClaim = await c.env.DB.prepare(
       "SELECT COUNT(*) as count FROM account_claims WHERE status = 'pending'",
     ).first<any>();
-    const pendingCorr = await c.env.DB.prepare(
-      "SELECT COUNT(*) as count FROM correction_requests WHERE status = 'pending'",
+    const newRegistrations = await c.env.DB.prepare(
+      "SELECT COUNT(*) as count FROM members WHERE registration_source = 'public_registration' AND created_at >= datetime('now', '-30 days')",
     ).first<any>();
-    const needsReview = await c.env.DB.prepare(
-      "SELECT COUNT(*) as count FROM members WHERE membership_status = 'needs_review'",
-    ).first<any>();
-
     const unclaimedCount = await c.env.DB.prepare(
       "SELECT COUNT(*) as count FROM members m LEFT JOIN member_accounts a ON m.id = a.member_id WHERE a.id IS NULL AND m.membership_status = 'active'",
     ).first<any>();
@@ -207,14 +169,86 @@ app.get("/dashboard", async (c) => {
         totalActive: active?.count || 0,
         pendingRegistrations: pendingReg?.count || 0,
         pendingClaims: pendingClaim?.count || 0,
-        pendingCorrections: pendingCorr?.count || 0,
-        needsReview: needsReview?.count || 0,
+        newRegistrations: newRegistrations?.count || 0,
         unclaimedActive: unclaimedCount?.count || 0,
       },
       recentMembers,
     });
   } catch (err) {
     return c.json({ error: "Ralat mendapatkan data papan pemuka." }, 500);
+  }
+});
+
+// 4b. GET /api/admin/settings/registration-approval
+app.get("/settings/registration-approval", async (c) => {
+  try {
+    const setting = await c.env.DB.prepare(
+      `SELECT value, updated_at
+       FROM system_settings
+       WHERE key = 'registration_approval_mode'`,
+    ).first<any>();
+
+    return c.json({
+      mode: setting?.value === "automatic" ? "automatic" : "manual",
+      updatedAt: setting?.updated_at || null,
+    });
+  } catch {
+    return c.json({ error: "Ralat mendapatkan tetapan kelulusan." }, 500);
+  }
+});
+
+// 4c. PUT /api/admin/settings/registration-approval
+app.put("/settings/registration-approval", async (c) => {
+  const adminSessionId = c.get("adminSessionId");
+  const body = await c.req.json();
+  const mode = body?.mode;
+
+  if (mode !== "manual" && mode !== "automatic") {
+    return c.json(
+      { error: "Mod kelulusan mesti 'manual' atau 'automatic'." },
+      400,
+    );
+  }
+
+  try {
+    const current = await c.env.DB.prepare(
+      `SELECT value
+       FROM system_settings
+       WHERE key = 'registration_approval_mode'`,
+    ).first<any>();
+    const previousMode =
+      current?.value === "automatic" ? "automatic" : "manual";
+
+    if (previousMode === mode) {
+      return c.json({
+        success: true,
+        mode,
+        message: "Tetapan kelulusan tidak berubah.",
+      });
+    }
+
+    const nowStr = new Date().toISOString();
+    await c.env.DB.prepare(
+      `INSERT INTO system_settings (key, value, updated_at, updated_by)
+       VALUES ('registration_approval_mode', ?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET
+         value = excluded.value,
+         updated_at = excluded.updated_at,
+         updated_by = excluded.updated_by`,
+    )
+      .bind(mode, nowStr, adminSessionId)
+      .run();
+
+    return c.json({
+      success: true,
+      mode,
+      message:
+        mode === "automatic"
+          ? "Auto lulus telah diaktifkan untuk pendaftaran baharu."
+          : "Kelulusan manual telah diaktifkan untuk pendaftaran baharu.",
+    });
+  } catch {
+    return c.json({ error: "Ralat menyimpan tetapan kelulusan." }, 500);
   }
 });
 
@@ -350,6 +384,70 @@ app.get("/members", async (c) => {
   }
 });
 
+// 5b. GET /api/admin/members/export (Export all members matching current filters)
+app.get("/members/export", async (c) => {
+  const q = c.req.query("q") || "";
+  const ic = c.req.query("ic") || "";
+  const phone = c.req.query("phone") || "";
+  const status = c.req.query("status") || "";
+  const accountState = c.req.query("accountState") || "";
+  const sortBy = c.req.query("sortBy") || "name";
+  const sortOrder = c.req.query("sortOrder") || "ASC";
+
+  try {
+    let sql = `
+      SELECT full_name, ic_normalized, phone_normalized, address, general_area,
+             membership_status, account_state, directory_visible, created_at
+      FROM members WHERE 1=1
+    `;
+    const params: any[] = [];
+
+    if (q.trim().length >= 2) {
+      const cleaned = q.replace(/[^\p{L}\p{N}\s]/gu, "").trim();
+      if (cleaned) {
+        sql += ` AND id IN (SELECT member_id FROM members_fts WHERE members_fts MATCH ?)`;
+        params.push(`${cleaned}*`);
+      }
+    }
+    if (ic.trim()) {
+      sql += ` AND ic_normalized = ?`;
+      params.push(cleanIc(ic));
+    }
+    if (phone.trim()) {
+      sql += ` AND phone_normalized LIKE ?`;
+      params.push(`%${phone.trim()}%`);
+    }
+    if (status) {
+      sql += ` AND membership_status = ?`;
+      params.push(status);
+    }
+    if (accountState) {
+      sql += ` AND account_state = ?`;
+      params.push(accountState);
+    }
+
+    if (sortBy === "created") {
+      sql += ` ORDER BY created_at ${sortOrder === "DESC" ? "DESC" : "ASC"}`;
+    } else if (sortBy === "updated") {
+      sql += ` ORDER BY updated_at ${sortOrder === "DESC" ? "DESC" : "ASC"}`;
+    } else {
+      sql += ` ORDER BY full_name ${sortOrder === "DESC" ? "DESC" : "ASC"}`;
+    }
+
+    const members = await c.env.DB.prepare(sql)
+      .bind(...params)
+      .all()
+      .then((res) => res.results);
+
+    return c.json({ members });
+  } catch {
+    return c.json(
+      { error: "Ralat menyediakan senarai ahli untuk eksport." },
+      500,
+    );
+  }
+});
+
 // 6. GET /api/admin/members/:id (Fetch member detail)
 app.get("/members/:id", async (c) => {
   const id = c.req.param("id");
@@ -387,7 +485,6 @@ app.get("/members/:id", async (c) => {
 // 7. PATCH /api/admin/members/:id (Edit member detail)
 app.patch("/members/:id", async (c) => {
   const id = c.req.param("id");
-  const adminSessionId = c.get("adminSessionId");
   const body = await c.req.json();
   const { fullName, ic, phone, address, generalArea, adminNotes, reason } =
     body;
@@ -395,7 +492,7 @@ app.patch("/members/:id", async (c) => {
   if (!reason) {
     return c.json(
       {
-        error: "Sebab pengemaskinian profil diperlukan untuk tujuan log audit.",
+        error: "Sebab pengemaskinian profil diperlukan.",
       },
       400,
     );
@@ -465,18 +562,6 @@ app.patch("/members/:id", async (c) => {
       .bind(...params)
       .run();
 
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      adminSessionId,
-      "MEMBER_EDIT",
-      "members",
-      id,
-      JSON.stringify(changes),
-      reason,
-    );
-
     return c.json({
       success: true,
       message: "Maklumat ahli berjaya dikemaskini.",
@@ -489,19 +574,11 @@ app.patch("/members/:id", async (c) => {
   }
 });
 
-// 7b. DELETE /api/admin/members/:id (Permanently delete an unclaimed legacy record)
+// 7b. DELETE /api/admin/members/:id (Permanently delete an eligible member)
 app.delete("/members/:id", async (c) => {
   const id = c.req.param("id");
-  const adminSessionId = c.get("adminSessionId");
   const body = await c.req.json();
-  const { reason, confirmationName } = body;
-
-  if (!reason || reason.trim().length < 5) {
-    return c.json(
-      { error: "Sebab pemadaman sekurang-kurangnya 5 aksara diperlukan." },
-      400,
-    );
-  }
+  const { confirmationName } = body;
 
   if (!confirmationName || typeof confirmationName !== "string") {
     return c.json(
@@ -512,7 +589,7 @@ app.delete("/members/:id", async (c) => {
 
   try {
     const member = await c.env.DB.prepare(
-      `SELECT id, full_name, registration_source, account_state
+      `SELECT id, full_name, registration_source, account_state, membership_status
        FROM members WHERE id = ?`,
     )
       .bind(id)
@@ -532,63 +609,54 @@ app.delete("/members/:id", async (c) => {
       );
     }
 
-    if (
-      member.registration_source !== "legacy_import" ||
-      member.account_state !== "unclaimed"
-    ) {
+    const isInactive = member.membership_status === "inactive";
+    const isUnclaimedLegacy =
+      member.registration_source === "legacy_import" &&
+      member.account_state === "unclaimed";
+
+    if (!isInactive && !isUnclaimedLegacy) {
       return c.json(
         {
           error:
-            "Hanya rekod import lama yang belum dituntut boleh dipadam kekal. Gunakan nyahaktif untuk rekod lain.",
+            "Hanya ahli berstatus Tidak Aktif atau rekod import lama yang belum dituntut boleh dipadam kekal.",
         },
         409,
       );
     }
 
-    const account = await c.env.DB.prepare(
-      "SELECT id FROM member_accounts WHERE member_id = ? LIMIT 1",
+    // An inactive member may be deleted together with their related account
+    // and sessions through the schema's ON DELETE CASCADE constraints.
+    if (!isInactive) {
+      const account = await c.env.DB.prepare(
+        "SELECT id FROM member_accounts WHERE member_id = ? LIMIT 1",
+      )
+        .bind(id)
+        .first();
+
+      if (account) {
+        return c.json(
+          {
+            error:
+              "Rekod import ini mempunyai akaun pengguna. Tukar status kepada Tidak Aktif sebelum memadamnya.",
+          },
+          409,
+        );
+      }
+    }
+
+    await c.env.DB.prepare(
+      `DELETE FROM members
+       WHERE id = ? AND (
+         membership_status = 'inactive' OR
+         (registration_source = 'legacy_import' AND account_state = 'unclaimed')
+       )`,
     )
       .bind(id)
-      .first();
-
-    if (account) {
-      return c.json(
-        {
-          error:
-            "Rekod ini mempunyai akaun pengguna dan tidak boleh dipadam kekal.",
-        },
-        409,
-      );
-    }
-
-    const nowStr = new Date().toISOString();
-    const auditStatement = c.env.DB.prepare(
-      `INSERT INTO audit_logs (
-        id, actor_type, actor_id, action, entity_type, entity_id,
-        changed_fields_json, reason, created_at
-      ) VALUES (?, 'admin', ?, 'MEMBER_DELETE_PERMANENT', 'members', ?, ?, ?, ?)`,
-    ).bind(
-      crypto.randomUUID(),
-      adminSessionId,
-      id,
-      JSON.stringify({
-        registrationSource: member.registration_source,
-        accountState: member.account_state,
-      }),
-      reason.trim(),
-      nowStr,
-    );
-
-    const deleteStatement = c.env.DB.prepare(
-      `DELETE FROM members
-       WHERE id = ? AND registration_source = 'legacy_import' AND account_state = 'unclaimed'`,
-    ).bind(id);
-
-    await c.env.DB.batch([auditStatement, deleteStatement]);
+      .run();
 
     return c.json({
       success: true,
-      message: "Rekod ahli lama berjaya dipadam secara kekal.",
+      message: "Rekod ahli dan akaun berkaitan berjaya dipadam secara kekal.",
     });
   } catch (err) {
     return c.json({ error: "Ralat pelayan semasa memadam rekod ahli." }, 500);
@@ -611,10 +679,7 @@ app.post("/members/:id/approve", async (c) => {
       return c.json({ error: "Ahli tidak ditemui." }, 404);
     }
 
-    if (
-      member.membership_status !== "pending" &&
-      member.membership_status !== "needs_review"
-    ) {
+    if (member.membership_status !== "pending") {
       return c.json(
         { error: "Status keahlian ini tidak boleh diluluskan." },
         400,
@@ -626,21 +691,6 @@ app.post("/members/:id/approve", async (c) => {
     )
       .bind(nowStr, adminSessionId, nowStr, id)
       .run();
-
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      adminSessionId,
-      "MEMBER_APPROVE",
-      "members",
-      id,
-      JSON.stringify({
-        statusBefore: member.membership_status,
-        statusAfter: "active",
-      }),
-      "Permohonan pendaftaran diluluskan oleh pentadbir",
-    );
 
     return c.json({
       success: true,
@@ -654,7 +704,6 @@ app.post("/members/:id/approve", async (c) => {
 // 9. POST /api/admin/members/:id/reject (Reject Registration)
 app.post("/members/:id/reject", async (c) => {
   const id = c.req.param("id");
-  const adminSessionId = c.get("adminSessionId");
   const body = await c.req.json();
   const { reason } = body;
 
@@ -692,18 +741,6 @@ app.post("/members/:id/reject", async (c) => {
       .bind(reason, nowStr, id)
       .run();
 
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      adminSessionId,
-      "MEMBER_REJECT",
-      "members",
-      id,
-      null,
-      reason,
-    );
-
     return c.json({ success: true, message: "Permohonan keahlian ditolak." });
   } catch (err) {
     return c.json({ error: "Ralat pelayan semasa menolak keahlian." }, 500);
@@ -713,7 +750,6 @@ app.post("/members/:id/reject", async (c) => {
 // 10. POST /api/admin/members/:id/deactivate (Deactivate Member)
 app.post("/members/:id/deactivate", async (c) => {
   const id = c.req.param("id");
-  const adminSessionId = c.get("adminSessionId");
   const body = await c.req.json();
   const { reason } = body;
 
@@ -746,18 +782,6 @@ app.post("/members/:id/deactivate", async (c) => {
       .bind(nowStr, nowStr, id)
       .run();
 
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      adminSessionId,
-      "MEMBER_DEACTIVATE",
-      "members",
-      id,
-      null,
-      reason,
-    );
-
     return c.json({
       success: true,
       message: "Keahlian berjaya dinyahaktifkan.",
@@ -773,7 +797,6 @@ app.post("/members/:id/deactivate", async (c) => {
 // 10b. POST /api/admin/members/:id/set-status (Change membership lifecycle status)
 app.post("/members/:id/set-status", async (c) => {
   const id = c.req.param("id");
-  const adminSessionId = c.get("adminSessionId");
   const body = await c.req.json();
   const { status, reason } = body;
 
@@ -827,25 +850,11 @@ app.post("/members/:id/set-status", async (c) => {
     }
 
     const statusConfig = {
-      active: { action: "MEMBER_ACTIVATED", label: "Aktif" },
-      inactive: { action: "MEMBER_DEACTIVATED", label: "Tidak Aktif" },
-      moved: { action: "MEMBER_MOVED", label: "Berpindah" },
-      deceased: { action: "MEMBER_DECEASED", label: "Meninggal Dunia" },
+      active: { label: "Aktif" },
+      inactive: { label: "Tidak Aktif" },
+      moved: { label: "Berpindah" },
+      deceased: { label: "Meninggal Dunia" },
     }[status as "active" | "inactive" | "moved" | "deceased"];
-
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      adminSessionId,
-      statusConfig.action,
-      "members",
-      id,
-      JSON.stringify({
-        previousStatus: member.membership_status,
-        newStatus: status,
-      }),
-      reason,
-    );
 
     return c.json({
       success: true,
@@ -865,7 +874,6 @@ app.post("/members/:id/set-status", async (c) => {
 // 11. POST /api/admin/members/:id/activate (Activate Inactive Member)
 app.post("/members/:id/activate", async (c) => {
   const id = c.req.param("id");
-  const adminSessionId = c.get("adminSessionId");
   const body = await c.req.json();
   const { reason } = body;
 
@@ -908,18 +916,6 @@ app.post("/members/:id/activate", async (c) => {
     )
       .bind(nowStr, id)
       .run();
-
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      adminSessionId,
-      "MEMBER_ACTIVATE",
-      "members",
-      id,
-      null,
-      reason,
-    );
 
     return c.json({
       success: true,
@@ -1042,18 +1038,6 @@ app.post("/claims/:id/approve", async (c) => {
 
     await c.env.DB.batch([createAccount, updateMember, approveClaim]);
 
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      adminSessionId,
-      "CLAIM_APPROVE",
-      "account_claims",
-      id,
-      JSON.stringify({ username: claim.requested_username }),
-      "Tuntutan akaun diluluskan",
-    );
-
     return c.json({
       success: true,
       message: "Permohonan tuntutan akaun berjaya diluluskan.",
@@ -1103,18 +1087,6 @@ app.post("/claims/:id/reject", async (c) => {
 
     await c.env.DB.batch([rejectClaim, revertMember]);
 
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      adminSessionId,
-      "CLAIM_REJECT",
-      "account_claims",
-      id,
-      null,
-      reason,
-    );
-
     return c.json({
       success: true,
       message: "Permohonan tuntutan akaun ditolak.",
@@ -1124,193 +1096,7 @@ app.post("/claims/:id/reject", async (c) => {
   }
 });
 
-// 15. GET /api/admin/corrections (Fetch all correction requests)
-app.get("/corrections", async (c) => {
-  try {
-    const corrections = await c.env.DB.prepare(
-      `SELECT c.id, c.member_id, c.requested_changes_json, c.status, c.requested_at,
-              m.full_name, m.ic_normalized, m.phone_normalized, m.address, m.general_area
-       FROM correction_requests c
-       JOIN members m ON c.member_id = m.id
-       ORDER BY c.requested_at DESC`,
-    )
-      .all()
-      .then((res) => res.results);
-
-    return c.json({ corrections });
-  } catch (err) {
-    return c.json(
-      { error: "Ralat pelayan semasa mendapatkan rekod pembetulan." },
-      500,
-    );
-  }
-});
-
-// 16. POST /api/admin/corrections/:id/approve (Approve Correction)
-app.post("/corrections/:id/approve", async (c) => {
-  const id = c.req.param("id");
-  const adminSessionId = c.get("adminSessionId");
-  const nowStr = new Date().toISOString();
-
-  try {
-    const request = await c.env.DB.prepare(
-      "SELECT member_id, requested_changes_json, status FROM correction_requests WHERE id = ?",
-    )
-      .bind(id)
-      .first<any>();
-
-    if (!request) {
-      return c.json({ error: "Rekod pembetulan tidak ditemui." }, 404);
-    }
-
-    if (request.status !== "pending") {
-      return c.json(
-        { error: "Permohonan pembetulan ini telah diproses sebelum ini." },
-        400,
-      );
-    }
-
-    const changes = JSON.parse(request.requested_changes_json);
-    const keys = Object.keys(changes);
-
-    if (keys.length === 0) {
-      return c.json(
-        { error: "Tiada perubahan dikesan untuk permohonan ini." },
-        400,
-      );
-    }
-
-    // Map fields
-    const mapping: Record<string, string> = {
-      fullName: "full_name",
-      ic: "ic_normalized",
-      phone: "phone_normalized",
-      address: "address",
-      generalArea: "general_area",
-    };
-
-    const sets: string[] = [];
-    const params: any[] = [];
-
-    for (const key of keys) {
-      const dbCol = mapping[key];
-      if (dbCol) {
-        let val = changes[key];
-        if (dbCol === "ic_normalized") {
-          val = cleanIc(val);
-          sets.push("ic_last4 = ?");
-          params.push(val.substring(8));
-        } else if (dbCol === "phone_normalized") {
-          val = normalizePhone(val) || val;
-        } else if (dbCol === "full_name") {
-          sets.push("full_name_normalized = ?");
-          params.push(val.toUpperCase().trim());
-        }
-        sets.push(`${dbCol} = ?`);
-        params.push(val);
-      }
-    }
-
-    params.push(nowStr, request.member_id);
-
-    const updateMember = c.env.DB.prepare(
-      `UPDATE members SET ${sets.join(", ")}, updated_at = ? WHERE id = ?`,
-    ).bind(...params);
-
-    const approveRequest = c.env.DB.prepare(
-      "UPDATE correction_requests SET status = 'approved', reviewed_at = ?, reviewed_by = ? WHERE id = ?",
-    ).bind(nowStr, adminSessionId, id);
-
-    await c.env.DB.batch([updateMember, approveRequest]);
-
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      adminSessionId,
-      "CORRECTION_APPROVE",
-      "correction_requests",
-      id,
-      request.requested_changes_json,
-      "Pembetulan profil diluluskan",
-    );
-
-    return c.json({
-      success: true,
-      message: "Permohonan pembetulan maklumat profil diluluskan.",
-    });
-  } catch (err) {
-    return c.json(
-      { error: "Ralat pelayan semasa meluluskan pembetulan." },
-      500,
-    );
-  }
-});
-
-// 17. POST /api/admin/corrections/:id/reject (Reject Correction)
-app.post("/corrections/:id/reject", async (c) => {
-  const id = c.req.param("id");
-  const adminSessionId = c.get("adminSessionId");
-  const body = await c.req.json();
-  const { reason } = body;
-
-  if (!reason) {
-    return c.json({ error: "Sebab penolakan pembetulan diperlukan." }, 400);
-  }
-
-  const nowStr = new Date().toISOString();
-
-  try {
-    const request = await c.env.DB.prepare(
-      "SELECT status FROM correction_requests WHERE id = ?",
-    )
-      .bind(id)
-      .first<any>();
-    if (!request) {
-      return c.json(
-        { error: "Rekod permohonan pembetulan tidak ditemui." },
-        404,
-      );
-    }
-
-    if (request.status !== "pending") {
-      return c.json(
-        { error: "Permohonan pembetulan ini telah diproses sebelum ini." },
-        400,
-      );
-    }
-
-    await c.env.DB.prepare(
-      "UPDATE correction_requests SET status = 'rejected', rejection_reason = ?, reviewed_at = ?, reviewed_by = ? WHERE id = ?",
-    )
-      .bind(reason, nowStr, adminSessionId, id)
-      .run();
-
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      adminSessionId,
-      "CORRECTION_REJECT",
-      "correction_requests",
-      id,
-      null,
-      reason,
-    );
-
-    return c.json({
-      success: true,
-      message: "Permohonan pembetulan maklumat ditolak.",
-    });
-  } catch (err) {
-    return c.json(
-      { error: "Ralat pelayan semasa menolak permohonan pembetulan." },
-      500,
-    );
-  }
-});
-
-// 18. POST /api/admin/accounts/:id/reset-code (Admin Account Reset Code Generator)
+// POST /api/admin/accounts/:id/reset-code (Admin Account Reset Code Generator)
 app.post("/accounts/:id/reset-code", async (c) => {
   const memberId = c.req.param("id"); // ID member
   const adminSessionId = c.get("adminSessionId");
@@ -1352,18 +1138,6 @@ app.post("/accounts/:id/reset-code", async (c) => {
       .bind(id, account.id, tokenHash, expiresAt, adminSessionId, nowStr)
       .run();
 
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      adminSessionId,
-      "PASSWORD_RESET_CODE_GENERATE",
-      "member_accounts",
-      account.id,
-      null,
-      reason,
-    );
-
     return c.json({
       success: true,
       resetCode,
@@ -1401,7 +1175,6 @@ app.get("/sessions", async (c) => {
 // 20. DELETE /api/admin/sessions/:id (Revoke one session)
 app.delete("/sessions/:id", async (c) => {
   const sessionIdToRevoke = c.req.param("id");
-  const adminSessionId = c.get("adminSessionId");
   const nowStr = new Date().toISOString();
 
   try {
@@ -1410,18 +1183,6 @@ app.delete("/sessions/:id", async (c) => {
     )
       .bind(nowStr, sessionIdToRevoke)
       .run();
-
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      adminSessionId,
-      "ADMIN_SESSION_REVOKE",
-      "admin_sessions",
-      sessionIdToRevoke,
-      null,
-      "Sesi pentadbir dibatalkan",
-    );
 
     return c.json({
       success: true,
@@ -1444,18 +1205,6 @@ app.post("/sessions/revoke-others", async (c) => {
       .bind(nowStr, adminSessionId)
       .run();
 
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "admin",
-      adminSessionId,
-      "ADMIN_SESSION_REVOKE_OTHERS",
-      "admin_sessions",
-      null,
-      null,
-      "Semua sesi peranti pentadbir lain dibatalkan",
-    );
-
     return c.json({
       success: true,
       message: "Semua sesi peranti lain berjaya dibatalkan.",
@@ -1465,68 +1214,6 @@ app.post("/sessions/revoke-others", async (c) => {
       { error: "Ralat pelayan semasa membatalkan sesi lain." },
       500,
     );
-  }
-});
-
-// 22. GET /api/admin/audit (Fetch audit logs)
-app.get("/audit", async (c) => {
-  const action = c.req.query("action") || "";
-  const actorType = c.req.query("actorType") || "";
-  const page = parseInt(c.req.query("page") || "1", 10);
-
-  const limit = 30;
-  const offset = (page - 1) * limit;
-
-  try {
-    let sql =
-      "SELECT id, actor_type, actor_id, action, entity_type, entity_id, changed_fields_json, reason, created_at FROM audit_logs WHERE 1=1";
-    const params: any[] = [];
-
-    if (action) {
-      sql += " AND action = ?";
-      params.push(action);
-    }
-    if (actorType) {
-      sql += " AND actor_type = ?";
-      params.push(actorType);
-    }
-
-    sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
-    params.push(limit, offset);
-
-    const logs = await c.env.DB.prepare(sql)
-      .bind(...params)
-      .all()
-      .then((res) => res.results);
-
-    // Get total count
-    let countSql = "SELECT COUNT(*) as count FROM audit_logs WHERE 1=1";
-    const countParams: any[] = [];
-
-    if (action) {
-      countSql += " AND action = ?";
-      countParams.push(action);
-    }
-    if (actorType) {
-      countSql += " AND actor_type = ?";
-      countParams.push(actorType);
-    }
-
-    const total = await c.env.DB.prepare(countSql)
-      .bind(...countParams)
-      .first<any>();
-
-    return c.json({
-      logs,
-      pagination: {
-        total: total?.count || 0,
-        page,
-        limit,
-        totalPages: Math.ceil((total?.count || 0) / limit),
-      },
-    });
-  } catch (err) {
-    return c.json({ error: "Ralat pelayan semasa memuatkan log audit." }, 500);
   }
 });
 

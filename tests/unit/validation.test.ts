@@ -3,6 +3,7 @@ import {
   parseIc,
   cleanIc,
   normalizePhone,
+  formatPhoneInput,
   isValidUsername,
   calculateAge,
 } from "../../src/shared/validation.ts";
@@ -88,6 +89,12 @@ describe("Phone Number Normalisation", () => {
   it("should reject invalid phone numbers", () => {
     expect(normalizePhone("12345")).toBeNull();
     expect(normalizePhone("abcdefghijk")).toBeNull();
+  });
+
+  it("should format Malaysian phone input consistently", () => {
+    expect(formatPhoneInput("0123456789")).toBe("012-345 6789");
+    expect(formatPhoneInput("+60123456789")).toBe("012-345 6789");
+    expect(formatPhoneInput("01112345678")).toBe("011-1234 5678");
   });
 });
 

@@ -12,7 +12,7 @@ CREATE TABLE members (
   phone_normalized TEXT NULL,
   address TEXT NOT NULL,
   general_area TEXT NULL,
-  membership_status TEXT NOT NULL CHECK (membership_status IN ('pending', 'active', 'rejected', 'inactive', 'needs_review', 'moved', 'deceased')),
+  membership_status TEXT NOT NULL CHECK (membership_status IN ('pending', 'active', 'rejected', 'inactive', 'moved', 'deceased')),
   account_state TEXT NOT NULL CHECK (account_state IN ('unclaimed', 'pending_claim', 'active', 'locked')),
   directory_visible INTEGER NOT NULL DEFAULT 0 CHECK (directory_visible IN (0, 1)),
   directory_consent_at TEXT NULL,
@@ -81,20 +81,7 @@ CREATE TABLE account_claims (
   FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
 );
 
--- 6. correction_requests table
-CREATE TABLE correction_requests (
-  id TEXT PRIMARY KEY,
-  member_id TEXT NOT NULL,
-  requested_changes_json TEXT NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
-  requested_at TEXT NOT NULL,
-  reviewed_at TEXT NULL,
-  reviewed_by TEXT NULL,
-  rejection_reason TEXT NULL,
-  FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
-);
-
--- 7. password_reset_tokens table
+-- 6. password_reset_tokens table
 CREATE TABLE password_reset_tokens (
   id TEXT PRIMARY KEY,
   account_id TEXT NOT NULL,
@@ -106,20 +93,7 @@ CREATE TABLE password_reset_tokens (
   FOREIGN KEY (account_id) REFERENCES member_accounts(id) ON DELETE CASCADE
 );
 
--- 8. audit_logs table
-CREATE TABLE audit_logs (
-  id TEXT PRIMARY KEY,
-  actor_type TEXT NOT NULL CHECK (actor_type IN ('member', 'admin', 'system')),
-  actor_id TEXT NULL,
-  action TEXT NOT NULL,
-  entity_type TEXT NOT NULL,
-  entity_id TEXT NULL,
-  changed_fields_json TEXT NULL,
-  reason TEXT NULL,
-  created_at TEXT NOT NULL
-);
-
--- 9. consent_records table
+-- 7. consent_records table
 CREATE TABLE consent_records (
   id TEXT PRIMARY KEY,
   member_id TEXT NOT NULL,
@@ -130,7 +104,7 @@ CREATE TABLE consent_records (
   FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
 );
 
--- 10. members_fts (FTS5 Virtual Table)
+-- 8. members_fts (FTS5 Virtual Table)
 CREATE VIRTUAL TABLE members_fts USING fts5(
   member_id UNINDEXED,
   full_name_normalized
@@ -159,5 +133,3 @@ CREATE INDEX idx_members_created ON members(created_at);
 CREATE INDEX idx_members_updated ON members(updated_at);
 
 CREATE UNIQUE INDEX idx_accounts_username ON member_accounts(username_normalized);
-
-CREATE INDEX idx_audit_logs_created ON audit_logs(created_at);

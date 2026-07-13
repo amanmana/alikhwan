@@ -134,6 +134,12 @@ export default function Login({ onAuthSuccess }: LoginProps) {
                 >
                   Kata Laluan
                 </label>
+                <Link
+                  to="/lupa-kata-laluan"
+                  className="text-xs font-semibold text-brand-primary hover:underline"
+                >
+                  Lupa kata laluan?
+                </Link>
               </div>
               <input
                 id="login-pwd"
@@ -191,8 +197,8 @@ export default function Login({ onAuthSuccess }: LoginProps) {
         <div className="mt-4 bg-teal-50 border border-teal-100 rounded-xl p-4 flex items-start gap-2.5 text-brand-primary">
           <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <p className="text-xs">
-            Jika anda terlupa kata laluan anda, sila hubungi pihak pentadbir
-            surau untuk mendapatkan kod set semula kata laluan satu kali.
+            Lupa kata laluan? Anda boleh menetapkannya semula sendiri
+            menggunakan No. IC dan nombor telefon yang didaftarkan.
           </p>
         </div>
       </main>

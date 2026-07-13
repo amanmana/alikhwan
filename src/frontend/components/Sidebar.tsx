@@ -5,10 +5,9 @@ import {
   Users,
   UserCheck,
   ClipboardCheck,
-  RefreshCw,
   ShieldAlert,
-  History,
   LogOut,
+  Settings2,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -77,20 +76,6 @@ export default function Sidebar({ onLogout }: SidebarProps) {
         </NavLink>
 
         <NavLink
-          to="/admin/pembetulan"
-          className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              isActive
-                ? "bg-teal-50 text-brand-primary"
-                : "text-brand-muted hover:bg-gray-50 hover:text-brand-primary"
-            }`
-          }
-        >
-          <RefreshCw className="w-5 h-5" />
-          <span>Permohonan Pindaan</span>
-        </NavLink>
-
-        <NavLink
           to="/admin/sesi"
           className={({ isActive }) =>
             `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
@@ -105,7 +90,7 @@ export default function Sidebar({ onLogout }: SidebarProps) {
         </NavLink>
 
         <NavLink
-          to="/admin/audit"
+          to="/admin/tetapan"
           className={({ isActive }) =>
             `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isActive
@@ -114,8 +99,8 @@ export default function Sidebar({ onLogout }: SidebarProps) {
             }`
           }
         >
-          <History className="w-5 h-5" />
-          <span>Log Audit</span>
+          <Settings2 className="w-5 h-5" />
+          <span>Tetapan Pentadbir</span>
         </NavLink>
       </div>
 

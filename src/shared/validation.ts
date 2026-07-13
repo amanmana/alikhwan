@@ -1,4 +1,4 @@
-import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { AsYouType, parsePhoneNumberFromString } from "libphonenumber-js";
 
 // Malaysia is UTC+8
 export function getKualaLumpurDate(date = new Date()): {
@@ -148,6 +148,16 @@ export function formatPhoneForDisplay(
     return parsed.formatNational();
   }
   return phone;
+}
+
+export function formatPhoneInput(phone: string): string {
+  let digits = phone.replace(/\D/g, "");
+
+  if (digits.startsWith("60")) {
+    digits = `0${digits.substring(2)}`;
+  }
+
+  return new AsYouType("MY").input(digits.substring(0, 11));
 }
 
 export function isValidUsername(username: string): boolean {

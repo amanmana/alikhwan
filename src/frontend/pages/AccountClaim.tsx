@@ -6,6 +6,9 @@ import {
   AlertTriangle,
   Info,
   Search,
+  LogIn,
+  RefreshCw,
+  UserCheck,
 } from "lucide-react";
 import Header from "../components/Header.tsx";
 import Turnstile from "../components/Turnstile.tsx";
@@ -27,6 +30,10 @@ export default function AccountClaim() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedMember, setSelectedMember] = useState<any | null>(null);
   const [searching, setSearching] = useState(false);
+  const [validatingSelection, setValidatingSelection] = useState(false);
+  const [claimedRecordName, setClaimedRecordName] = useState<string | null>(
+    null,
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,14 +47,44 @@ export default function AccountClaim() {
         fullName?: string;
         address?: string;
       };
-      if (state.memberId) {
-        setMemberId(state.memberId);
-        setSelectedMember({
-          id: state.memberId,
-          fullName: state.fullName || "Ahli Kariah",
-          address: state.address || "",
-        });
-      }
+      if (!state.memberId) return;
+
+      const verifySelection = async () => {
+        setValidatingSelection(true);
+        try {
+          const res = await fetch(
+            `/api/public/legacy-claim-status/${encodeURIComponent(state.memberId!)}`,
+          );
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.error || "Rekod lama gagal disahkan.");
+          }
+
+          if (!data.claimable) {
+            setMemberId("");
+            setSelectedMember(null);
+            setClaimedRecordName(state.fullName || "Rekod ahli ini");
+            return;
+          }
+
+          setClaimedRecordName(null);
+          setMemberId(state.memberId!);
+          setSelectedMember({
+            id: state.memberId,
+            fullName: state.fullName || "Ahli Kariah",
+            address: state.address || "",
+          });
+        } catch (err: any) {
+          setMemberId("");
+          setSelectedMember(null);
+          setError(err.message || "Rekod lama gagal disahkan.");
+        } finally {
+          setValidatingSelection(false);
+        }
+      };
+
+      verifySelection();
     }
   }, [location.state]);
 
@@ -214,6 +251,42 @@ export default function AccountClaim() {
                 </Link>
               </div>
             </div>
+          ) : validatingSelection ? (
+            <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-center">
+              <RefreshCw className="h-7 w-7 animate-spin text-brand-primary" />
+              <p className="text-xs font-medium text-brand-muted">
+                Mengesahkan status rekod lama...
+              </p>
+            </div>
+          ) : claimedRecordName ? (
+            <div className="space-y-4 py-2">
+              <div className="rounded-xl border border-teal-200 bg-teal-50 p-5 text-center">
+                <UserCheck className="mx-auto h-9 w-9 text-brand-primary" />
+                <h3 className="mt-3 font-bold text-brand-text">
+                  Akaun Telah Dituntut
+                </h3>
+                <p className="mt-1 text-sm font-semibold text-brand-primary">
+                  {claimedRecordName}
+                </p>
+                <p className="mt-2 text-xs leading-relaxed text-brand-muted">
+                  Rekod ini sudah mempunyai akaun atau sedang melalui proses
+                  tuntutan. Tuntutan kedua tidak dibenarkan.
+                </p>
+              </div>
+              <Link
+                to="/log-masuk"
+                className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-3 text-sm font-bold text-white hover:bg-teal-800"
+              >
+                <LogIn className="h-4 w-4" />
+                Log Masuk Akaun
+              </Link>
+              <Link
+                to="/semak-keahlian"
+                className="flex min-h-[44px] w-full items-center justify-center rounded-lg border border-gray-300 px-4 py-3 text-xs font-bold text-brand-text hover:bg-gray-50"
+              >
+                Kembali ke Carian Rekod
+              </Link>
+            </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -221,9 +294,8 @@ export default function AccountClaim() {
                   <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
                   <p className="text-[11px] leading-relaxed text-brand-muted">
                     Rekod kariah lama tidak mengandungi No. IC dan No. telefon.
-                    Sila cari nama profil lama anda dahulu, kemudian lengkapkan
-                    No. IC dan No. telefon baru untuk membolehkan semakan
-                    pentadbir dibuat.
+                    Cari dan pilih profil lama anda dahulu. Medan untuk
+                    melengkapkan akaun akan dipaparkan selepas profil dipilih.
                   </p>
                 </div>
               </div>
@@ -238,7 +310,7 @@ export default function AccountClaim() {
               {/* Legacy Profile Search */}
               <div className="space-y-2 border-b border-gray-150 pb-4 mb-2">
                 <label className="block text-xs font-bold text-brand-text">
-                  Pilih Profil Kariah Lama Anda (Wajib)
+                  Nama Anda
                 </label>
 
                 {!selectedMember ? (
@@ -261,27 +333,50 @@ export default function AccountClaim() {
                     </div>
 
                     {searchResults.length > 0 && (
-                      <div className="bg-brand-background border border-gray-250 rounded-lg max-h-48 overflow-y-auto p-2 space-y-1 shadow-inner">
-                        {searchResults.map((member) => (
-                          <button
-                            key={member.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedMember(member);
-                              setMemberId(member.id);
-                              setSearchResults([]);
-                            }}
-                            className="w-full text-left p-2.5 hover:bg-teal-50 border border-transparent hover:border-teal-200 rounded-md transition-all text-xs"
-                          >
-                            <div className="font-bold text-brand-text">
-                              {member.fullName}
+                      <div className="bg-brand-background border border-gray-250 rounded-lg p-2 space-y-1 shadow-inner">
+                        {searchResults.map((member, index) =>
+                          member.claimState === "claimed" ? (
+                            <div
+                              key={`claimed-${member.fullName}-${index}`}
+                              className="rounded-md border border-teal-200 bg-teal-50 p-2.5 text-xs"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="font-bold text-brand-text">
+                                  {member.fullName}
+                                </span>
+                                <span className="rounded-full bg-white px-2 py-0.5 text-[9px] font-bold text-brand-primary">
+                                  Telah dituntut
+                                </span>
+                              </div>
+                              <Link
+                                to="/log-masuk"
+                                className="mt-2 flex min-h-[36px] items-center justify-center gap-1.5 rounded-md border border-brand-primary bg-white font-bold text-brand-primary"
+                              >
+                                <LogIn className="h-3.5 w-3.5" />
+                                Log Masuk
+                              </Link>
                             </div>
-                            <div className="text-[10px] text-brand-muted">
-                              Jalan/Kawasan:{" "}
-                              {member.address || "Kariah Al-Ikhwan"}
-                            </div>
-                          </button>
-                        ))}
+                          ) : (
+                            <button
+                              key={member.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedMember(member);
+                                setMemberId(member.id);
+                                setSearchResults([]);
+                              }}
+                              className="w-full text-left p-2.5 hover:bg-teal-50 border border-transparent hover:border-teal-200 rounded-md transition-all text-xs"
+                            >
+                              <div className="font-bold text-brand-text">
+                                {member.fullName}
+                              </div>
+                              <div className="text-[10px] text-brand-muted">
+                                Jalan/Kawasan:{" "}
+                                {member.address || "Kariah Al-Ikhwan"}
+                              </div>
+                            </button>
+                          ),
+                        )}
                       </div>
                     )}
 
@@ -322,151 +417,166 @@ export default function AccountClaim() {
                 )}
               </div>
 
-              {/* IC Input */}
-              <div className="space-y-1">
-                <label
-                  htmlFor="claim-ic"
-                  className="block text-xs font-bold text-brand-text"
-                >
-                  Nombor IC Baru Anda (12 Digit)
-                </label>
-                <input
-                  id="claim-ic"
-                  type="text"
-                  placeholder="Contoh: 801215-01-4321"
-                  value={ic}
-                  onChange={handleIcChange}
-                  required
-                  className="w-full px-3 py-2.5 bg-brand-background border border-gray-300 rounded-lg text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
-                />
-              </div>
+              {selectedMember && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-primary text-[10px] font-bold text-white">
+                      2
+                    </span>
+                    <p className="text-xs font-bold text-brand-text">
+                      Lengkapkan Maklumat Akaun
+                    </p>
+                  </div>
 
-              {/* Phone Input */}
-              <div className="space-y-1">
-                <label
-                  htmlFor="claim-phone"
-                  className="block text-xs font-bold text-brand-text"
-                >
-                  Nombor Telefon Baru Anda
-                </label>
-                <input
-                  id="claim-phone"
-                  type="tel"
-                  placeholder="Contoh: 012-3456789"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  required
-                  className="w-full px-3 py-2.5 bg-brand-background border border-gray-300 rounded-lg text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
-                />
-              </div>
+                  {/* IC Input */}
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="claim-ic"
+                      className="block text-xs font-bold text-brand-text"
+                    >
+                      Nombor IC Baru Anda (12 Digit)
+                    </label>
+                    <input
+                      id="claim-ic"
+                      type="text"
+                      placeholder="Contoh: 801215-01-4321"
+                      value={ic}
+                      onChange={handleIcChange}
+                      required
+                      className="w-full px-3 py-2.5 bg-brand-background border border-gray-300 rounded-lg text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                    />
+                  </div>
 
-              {/* Desired Username */}
-              <div className="space-y-1">
-                <label
-                  htmlFor="claim-username"
-                  className="block text-xs font-bold text-brand-text"
-                >
-                  Nama Pengguna (Username) Pilihan
-                </label>
-                <input
-                  id="claim-username"
-                  type="text"
-                  placeholder="Hanya huruf, angka, _ atau -"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                  className="w-full px-3 py-2.5 bg-brand-background border border-gray-300 rounded-lg text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
-                />
-                <span className="text-[10px] text-gray-400 block">
-                  Digunakan untuk log masuk kelak. Panjang 3-30 aksara.
-                </span>
-              </div>
+                  {/* Phone Input */}
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="claim-phone"
+                      className="block text-xs font-bold text-brand-text"
+                    >
+                      Nombor Telefon Baru Anda
+                    </label>
+                    <input
+                      id="claim-phone"
+                      type="tel"
+                      placeholder="Contoh: 012-3456789"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      required
+                      className="w-full px-3 py-2.5 bg-brand-background border border-gray-300 rounded-lg text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                    />
+                  </div>
 
-              {/* Password */}
-              <div className="space-y-1">
-                <label
-                  htmlFor="claim-pwd"
-                  className="block text-xs font-bold text-brand-text"
-                >
-                  Kata Laluan Baru
-                </label>
-                <input
-                  id="claim-pwd"
-                  type="password"
-                  placeholder="Sekurang-kurangnya 10 aksara"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full px-3 py-2.5 bg-brand-background border border-gray-300 rounded-lg text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
-                />
-                {password.length > 0 && password.length < 10 && (
-                  <span className="text-[10px] text-brand-danger block">
-                    Panjang kata laluan semasa ialah {password.length}/10
-                    aksara.
-                  </span>
-                )}
-              </div>
+                  {/* Desired Username */}
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="claim-username"
+                      className="block text-xs font-bold text-brand-text"
+                    >
+                      Nama Pengguna (Username) Pilihan
+                    </label>
+                    <input
+                      id="claim-username"
+                      type="text"
+                      placeholder="Hanya huruf, angka, _ atau -"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      required
+                      className="w-full px-3 py-2.5 bg-brand-background border border-gray-300 rounded-lg text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                    />
+                    <span className="text-[10px] text-gray-400 block">
+                      Digunakan untuk log masuk kelak. Panjang 3-30 aksara.
+                    </span>
+                  </div>
 
-              {/* Confirm Password */}
-              <div className="space-y-1">
-                <label
-                  htmlFor="claim-pwd-confirm"
-                  className="block text-xs font-bold text-brand-text"
-                >
-                  Sahkan Kata Laluan Baru
-                </label>
-                <input
-                  id="claim-pwd-confirm"
-                  type="password"
-                  placeholder="Masukkan semula kata laluan"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  className="w-full px-3 py-2.5 bg-brand-background border border-gray-300 rounded-lg text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
-                />
-              </div>
+                  {/* Password */}
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="claim-pwd"
+                      className="block text-xs font-bold text-brand-text"
+                    >
+                      Kata Laluan Baru
+                    </label>
+                    <input
+                      id="claim-pwd"
+                      type="password"
+                      placeholder="Sekurang-kurangnya 10 aksara"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      className="w-full px-3 py-2.5 bg-brand-background border border-gray-300 rounded-lg text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                    />
+                    {password.length > 0 && password.length < 10 && (
+                      <span className="text-[10px] text-brand-danger block">
+                        Panjang kata laluan semasa ialah {password.length}/10
+                        aksara.
+                      </span>
+                    )}
+                  </div>
 
-              {/* Privacy Notice Agreement */}
-              <div className="pt-2 flex items-start gap-2.5">
-                <input
-                  id="privacy-consent"
-                  type="checkbox"
-                  checked={privacyConsent}
-                  onChange={(e) => setPrivacyConsent(e.target.checked)}
-                  required
-                  className="w-4 h-4 rounded text-brand-primary focus:ring-brand-primary mt-1"
-                />
-                <label
-                  htmlFor="privacy-consent"
-                  className="text-xs text-brand-muted leading-relaxed"
-                >
-                  Saya bersetuju nama dan data peribadi saya dikendalikan
-                  berlandaskan{" "}
-                  <Link
-                    to="/notis-privasi"
-                    className="text-brand-primary underline font-semibold"
+                  {/* Confirm Password */}
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="claim-pwd-confirm"
+                      className="block text-xs font-bold text-brand-text"
+                    >
+                      Sahkan Kata Laluan Baru
+                    </label>
+                    <input
+                      id="claim-pwd-confirm"
+                      type="password"
+                      placeholder="Masukkan semula kata laluan"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      className="w-full px-3 py-2.5 bg-brand-background border border-gray-300 rounded-lg text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                    />
+                  </div>
+
+                  {/* Privacy Notice Agreement */}
+                  <div className="pt-2 flex items-start gap-2.5">
+                    <input
+                      id="privacy-consent"
+                      type="checkbox"
+                      checked={privacyConsent}
+                      onChange={(e) => setPrivacyConsent(e.target.checked)}
+                      required
+                      className="w-4 h-4 rounded text-brand-primary focus:ring-brand-primary mt-1"
+                    />
+                    <label
+                      htmlFor="privacy-consent"
+                      className="text-xs text-brand-muted leading-relaxed"
+                    >
+                      Saya bersetuju nama dan data peribadi saya dikendalikan
+                      berlandaskan{" "}
+                      <Link
+                        to="/notis-privasi"
+                        className="text-brand-primary underline font-semibold"
+                      >
+                        Notis Privasi e-Kariah Al-Ikhwan
+                      </Link>
+                      .
+                    </label>
+                  </div>
+
+                  {/* Turnstile Safety */}
+                  <div className="space-y-1 pt-1">
+                    <label className="block text-xs font-bold text-brand-text text-center">
+                      Pengesahan Keselamatan
+                    </label>
+                    <Turnstile onVerify={setTurnstileToken} />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3 bg-brand-primary hover:bg-teal-800 text-white font-bold text-sm rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:ring-4 focus:ring-teal-200 min-h-[44px]"
                   >
-                    Notis Privasi e-Kariah Al-Ikhwan
-                  </Link>
-                  .
-                </label>
-              </div>
-
-              {/* Turnstile Safety */}
-              <div className="space-y-1 pt-1">
-                <label className="block text-xs font-bold text-brand-text text-center">
-                  Pengesahan Keselamatan
-                </label>
-                <Turnstile onVerify={setTurnstileToken} />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || !selectedMember}
-                className="w-full py-3 bg-brand-primary hover:bg-teal-800 text-white font-bold text-sm rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:ring-4 focus:ring-teal-200 min-h-[44px]"
-              >
-                {loading ? "Menghantar Permohonan..." : "Hantar Tuntutan Akaun"}
-              </button>
+                    {loading
+                      ? "Menghantar Permohonan..."
+                      : "Hantar Tuntutan Akaun"}
+                  </button>
+                </div>
+              )}
             </form>
           )}
         </div>

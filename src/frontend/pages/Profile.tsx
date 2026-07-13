@@ -29,7 +29,6 @@ export default function Profile({ onLogoutSuccess }: ProfileProps) {
   const navigate = useNavigate();
 
   const [member, setMember] = useState<any>(null);
-  const [pendingCorrections, setPendingCorrections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,17 +43,19 @@ export default function Profile({ onLogoutSuccess }: ProfileProps) {
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [passwordLoading, setPasswordLoading] = useState(false);
 
-  // Correction request state
+  // Profile update state
   const [editName, setEditName] = useState("");
   const [editIc, setEditIc] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editAddress, setEditAddress] = useState("");
   const [editArea, setEditArea] = useState("");
-  const [correctionError, setCorrectionError] = useState<string | null>(null);
-  const [correctionSuccess, setCorrectionSuccess] = useState<string | null>(
+  const [profileUpdateError, setProfileUpdateError] = useState<string | null>(
     null,
   );
-  const [correctionLoading, setCorrectionLoading] = useState(false);
+  const [profileUpdateSuccess, setProfileUpdateSuccess] = useState<
+    string | null
+  >(null);
+  const [profileUpdateLoading, setProfileUpdateLoading] = useState(false);
 
   // Alert message passed from registration
   const [registrationMessage, setRegistrationMessage] = useState<string | null>(
@@ -76,7 +77,6 @@ export default function Profile({ onLogoutSuccess }: ProfileProps) {
       }
 
       setMember(data.member);
-      setPendingCorrections(data.pendingCorrections || []);
 
       // Prefill edit forms
       setEditName(data.member.fullName);
@@ -173,24 +173,24 @@ export default function Profile({ onLogoutSuccess }: ProfileProps) {
     }
   };
 
-  const handleCorrectionSubmit = async (e: React.FormEvent) => {
+  const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setCorrectionError(null);
-    setCorrectionSuccess(null);
+    setProfileUpdateError(null);
+    setProfileUpdateSuccess(null);
 
     const cleanEditIc = editIc.replace(/[\s-]/g, "");
     const cleanEditPhone = editPhone.trim();
 
     if (cleanEditIc.length !== 12) {
-      setCorrectionError("Nombor IC mestilah mengandungi 12 digit.");
+      setProfileUpdateError("Nombor IC mestilah mengandungi 12 digit.");
       return;
     }
 
-    setCorrectionLoading(true);
+    setProfileUpdateLoading(true);
 
     try {
-      const res = await fetch("/api/me/correction-requests", {
-        method: "POST",
+      const res = await fetch("/api/me/profile", {
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
@@ -212,21 +212,19 @@ export default function Profile({ onLogoutSuccess }: ProfileProps) {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(
-          data.error || "Gagal menghantar permohonan pembetulan.",
-        );
+        throw new Error(data.error || "Gagal mengemas kini profil.");
       }
 
-      setCorrectionSuccess(
-        "Permohonan pindaan maklumat berjaya dihantar untuk kelulusan admin.",
-      );
+      setProfileUpdateSuccess("Maklumat profil berjaya dikemas kini.");
 
-      // Refresh profile to show pending correction banner
+      // Refresh the displayed member details after saving
       fetchProfile();
     } catch (err: any) {
-      setCorrectionError(err.message || "Ralat semasa menghantar permohonan.");
+      setProfileUpdateError(
+        err.message || "Ralat semasa mengemas kini profil.",
+      );
     } finally {
-      setCorrectionLoading(false);
+      setProfileUpdateLoading(false);
     }
   };
 
@@ -290,22 +288,6 @@ export default function Profile({ onLogoutSuccess }: ProfileProps) {
               <p className="text-[11px] leading-relaxed">
                 {registrationMessage ||
                   "Pendaftaran anda telah diterima. Akaun anda sedang menunggu semakan dan kelulusan daripada pentadbir surau."}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Pending correction banner */}
-        {pendingCorrections.length > 0 && (
-          <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-start gap-3 text-brand-muted">
-            <RefreshCw className="w-5 h-5 text-brand-primary flex-shrink-0 mt-0.5 animate-spin" />
-            <div className="space-y-1">
-              <h4 className="font-bold text-xs text-brand-primary">
-                Pindaan Profil Sedang Diproses
-              </h4>
-              <p className="text-[11px] leading-relaxed">
-                Anda telah menghantar permohonan pembetulan maklumat. Pihak
-                pentadbir sedang meneliti maklumat baru tersebut.
               </p>
             </div>
           </div>
@@ -427,36 +409,35 @@ export default function Profile({ onLogoutSuccess }: ProfileProps) {
           </div>
         </section>
 
-        {/* Profile Correction Request section */}
+        {/* Direct profile update section */}
         <section className="bg-brand-surface border border-gray-200 rounded-xl p-5 shadow-sm space-y-4">
           <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
             <FileEdit className="w-5 h-5 text-brand-primary" />
             <h4 className="font-bold text-sm text-brand-text">
-              Mohon Pindaan Maklumat Profil
+              Kemas Kini Maklumat Profil
             </h4>
           </div>
 
           <p className="text-[10px] text-brand-muted leading-relaxed">
-            Sebarang pindaan nama, No. IC, telefon, atau alamat memerlukan
-            semakan pentadbir surau sebelum dikemaskini bagi mengelakkan
-            penipuan identiti.
+            Semak maklumat anda dan simpan sebarang perubahan pada nama, No. IC,
+            telefon atau alamat.
           </p>
 
-          {correctionSuccess && (
+          {profileUpdateSuccess && (
             <div className="bg-green-50 border border-green-200 text-brand-success text-xs font-medium p-3 rounded-lg flex items-start gap-2">
               <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <span>{correctionSuccess}</span>
+              <span>{profileUpdateSuccess}</span>
             </div>
           )}
 
-          {correctionError && (
+          {profileUpdateError && (
             <div className="bg-red-50 border border-red-200 text-brand-danger text-xs font-medium p-3 rounded-lg flex items-start gap-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <span>{correctionError}</span>
+              <span>{profileUpdateError}</span>
             </div>
           )}
 
-          <form onSubmit={handleCorrectionSubmit} className="space-y-3.5">
+          <form onSubmit={handleProfileUpdate} className="space-y-3.5">
             <div className="space-y-1">
               <label
                 htmlFor="edit-name"
@@ -523,12 +504,10 @@ export default function Profile({ onLogoutSuccess }: ProfileProps) {
 
             <button
               type="submit"
-              disabled={correctionLoading || pendingCorrections.length > 0}
+              disabled={profileUpdateLoading}
               className="w-full py-2.5 bg-brand-secondary hover:bg-teal-600 text-white font-bold text-xs rounded-lg shadow transition-all disabled:opacity-50 min-h-[44px]"
             >
-              {correctionLoading
-                ? "Menghantar..."
-                : "Hantar Permohonan Pindaan"}
+              {profileUpdateLoading ? "Menyimpan..." : "Simpan Perubahan"}
             </button>
           </form>
         </section>

@@ -7,13 +7,15 @@ import {
   Search,
   ShieldCheck,
   UserCheck,
+  LogIn,
 } from "lucide-react";
 import Header from "../components/Header.tsx";
 
 interface LegacyMember {
-  id: string;
+  id?: string;
   fullName: string;
-  address: string;
+  address?: string;
+  claimState?: "claimable" | "claimed";
 }
 
 export default function MembershipCheck() {
@@ -55,6 +57,8 @@ export default function MembershipCheck() {
   };
 
   const selectMember = (member: LegacyMember) => {
+    if (!member.id || member.claimState === "claimed") return;
+
     navigate("/tuntut-akaun", {
       state: {
         memberId: member.id,
@@ -141,38 +145,69 @@ export default function MembershipCheck() {
             <section className="space-y-3" aria-live="polite">
               <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
                 <p className="text-xs font-bold text-brand-primary">
-                  Adakah salah satu ini rekod anda?
+                  {results.some((member) => member.claimState !== "claimed")
+                    ? "Adakah salah satu ini rekod anda?"
+                    : "Rekod keahlian ditemui"}
                 </p>
                 <p className="text-[10px] text-brand-muted mt-1">
-                  Pilih hanya rekod milik anda. Pentadbir akan membuat
-                  pengesahan sebelum akaun diaktifkan.
+                  {results.some((member) => member.claimState !== "claimed")
+                    ? "Pilih hanya rekod milik anda. Pentadbir akan membuat pengesahan sebelum akaun diaktifkan."
+                    : "Rekod yang sepadan sudah mempunyai akaun pengguna."}
                 </p>
               </div>
 
               <div className="space-y-2">
-                {results.map((member) => (
+                {results.map((member, index) => (
                   <div
-                    key={member.id}
-                    className="border border-gray-200 rounded-lg p-3 space-y-3"
+                    key={member.id || `claimed-${member.fullName}-${index}`}
+                    className={`border rounded-lg p-3 space-y-3 ${
+                      member.claimState === "claimed"
+                        ? "border-teal-200 bg-teal-50/50"
+                        : "border-gray-200"
+                    }`}
                   >
                     <div>
-                      <p className="font-bold text-sm text-brand-text">
-                        {member.fullName}
-                      </p>
-                      <p className="text-[10px] text-brand-muted mt-1 flex items-start gap-1.5">
-                        <MapPin className="w-3 h-3 flex-shrink-0 mt-0.5" />
-                        <span>
-                          {member.address || "Kawasan Kariah Al-Ikhwan"}
-                        </span>
-                      </p>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-bold text-sm text-brand-text">
+                          {member.fullName}
+                        </p>
+                        {member.claimState === "claimed" && (
+                          <span className="rounded-full border border-teal-200 bg-white px-2 py-0.5 text-[9px] font-bold text-brand-primary">
+                            Akaun telah dituntut
+                          </span>
+                        )}
+                      </div>
+                      {member.claimState === "claimed" ? (
+                        <p className="text-[10px] text-brand-muted mt-1 leading-relaxed">
+                          Rekod ini sudah mempunyai akaun. Sila log masuk
+                          menggunakan nama pengguna dan kata laluan anda.
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-brand-muted mt-1 flex items-start gap-1.5">
+                          <MapPin className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                          <span>
+                            {member.address || "Kawasan Kariah Al-Ikhwan"}
+                          </span>
+                        </p>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => selectMember(member)}
-                      className="w-full py-2.5 bg-brand-primary hover:bg-teal-800 text-white font-bold text-xs rounded-lg min-h-[44px]"
-                    >
-                      Ini Rekod Saya
-                    </button>
+                    {member.claimState === "claimed" ? (
+                      <Link
+                        to="/log-masuk"
+                        className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-lg border border-brand-primary bg-white py-2.5 text-xs font-bold text-brand-primary hover:bg-teal-50"
+                      >
+                        <LogIn className="w-4 h-4" />
+                        Log Masuk Akaun
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => selectMember(member)}
+                        className="w-full py-2.5 bg-brand-primary hover:bg-teal-800 text-white font-bold text-xs rounded-lg min-h-[44px]"
+                      >
+                        Ini Rekod Saya
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

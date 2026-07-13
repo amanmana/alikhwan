@@ -7,6 +7,7 @@ import {
   Info,
   CheckCircle2,
   AlertTriangle,
+  LogIn,
 } from "lucide-react";
 import Header from "../components/Header.tsx";
 import Turnstile from "../components/Turnstile.tsx";
@@ -27,7 +28,6 @@ export default function Registration({
   const [ic, setIc] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
-  const [generalArea, setGeneralArea] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -148,7 +148,6 @@ export default function Registration({
           ic: ic.replace(/[\s-]/g, ""),
           phone: phone.trim(),
           address: address.trim(),
-          generalArea: generalArea.trim() || undefined,
           username,
           password,
           confirmPassword,
@@ -173,8 +172,7 @@ export default function Registration({
         id: data.member.id,
         fullName: data.member.fullName,
         membershipStatus: data.member.membershipStatus,
-        registrationSuccessMessage:
-          "Pendaftaran diterima dan sedang menunggu pengesahan admin.",
+        registrationSuccessMessage: data.message,
       });
 
       navigate("/profil");
@@ -292,32 +290,53 @@ export default function Registration({
                   </div>
 
                   <div className="space-y-2">
-                    {possibleLegacyMatches.map((member) => (
-                      <button
-                        key={member.id}
-                        type="button"
-                        onClick={() =>
-                          navigate("/tuntut-akaun", {
-                            state: {
-                              memberId: member.id,
-                              fullName: member.fullName,
-                              address: member.address,
-                            },
-                          })
-                        }
-                        className="w-full bg-white border border-amber-200 rounded-lg p-2.5 text-left hover:border-brand-primary"
-                      >
-                        <span className="block text-xs font-bold text-brand-text">
-                          {member.fullName}
-                        </span>
-                        <span className="block text-[10px] text-brand-muted mt-0.5">
-                          {member.address || "Kariah Al-Ikhwan"}
-                        </span>
-                        <span className="block text-[10px] font-bold text-brand-primary mt-1">
-                          Tuntut rekod ini →
-                        </span>
-                      </button>
-                    ))}
+                    {possibleLegacyMatches.map((member, index) =>
+                      member.claimState === "claimed" ? (
+                        <div
+                          key={`claimed-${member.fullName}-${index}`}
+                          className="rounded-lg border border-teal-200 bg-teal-50 p-2.5"
+                        >
+                          <span className="block text-xs font-bold text-brand-text">
+                            {member.fullName}
+                          </span>
+                          <span className="mt-0.5 block text-[10px] text-brand-muted">
+                            Rekod ini sudah mempunyai akaun.
+                          </span>
+                          <Link
+                            to="/log-masuk"
+                            className="mt-2 flex min-h-[36px] items-center justify-center gap-1.5 rounded-md border border-brand-primary bg-white text-[10px] font-bold text-brand-primary"
+                          >
+                            <LogIn className="h-3.5 w-3.5" />
+                            Log Masuk Akaun
+                          </Link>
+                        </div>
+                      ) : (
+                        <button
+                          key={member.id}
+                          type="button"
+                          onClick={() =>
+                            navigate("/tuntut-akaun", {
+                              state: {
+                                memberId: member.id,
+                                fullName: member.fullName,
+                                address: member.address,
+                              },
+                            })
+                          }
+                          className="w-full bg-white border border-amber-200 rounded-lg p-2.5 text-left hover:border-brand-primary"
+                        >
+                          <span className="block text-xs font-bold text-brand-text">
+                            {member.fullName}
+                          </span>
+                          <span className="block text-[10px] text-brand-muted mt-0.5">
+                            {member.address || "Kariah Al-Ikhwan"}
+                          </span>
+                          <span className="block text-[10px] font-bold text-brand-primary mt-1">
+                            Tuntut rekod ini →
+                          </span>
+                        </button>
+                      ),
+                    )}
                   </div>
 
                   <button
@@ -387,23 +406,6 @@ export default function Registration({
                   rows={3}
                   className="w-full px-3 py-2.5 bg-brand-background border border-gray-300 rounded-lg text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
                 ></textarea>
-              </div>
-
-              <div className="space-y-1">
-                <label
-                  htmlFor="reg-area"
-                  className="block text-xs font-bold text-brand-text"
-                >
-                  Kawasan / Taman Perumahan (Pilihan)
-                </label>
-                <input
-                  id="reg-area"
-                  type="text"
-                  placeholder="Contoh: Taman Desa Indah"
-                  value={generalArea}
-                  onChange={(e) => setGeneralArea(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-brand-background border border-gray-300 rounded-lg text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
-                />
               </div>
 
               <div className="flex gap-3">

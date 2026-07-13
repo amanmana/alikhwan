@@ -7,11 +7,11 @@ import {
   RefreshCw,
   ShieldAlert,
   AlertTriangle,
-  History,
   LayoutDashboard,
   Search,
   ArrowRight,
   ShieldCheck,
+  Settings2,
 } from "lucide-react";
 import Header from "../components/Header.tsx";
 import Sidebar from "../components/Sidebar.tsx";
@@ -79,20 +79,6 @@ export function AdminMobileNav() {
       </NavLink>
 
       <NavLink
-        to="/admin/pembetulan"
-        className={({ isActive }) =>
-          `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
-            isActive
-              ? "bg-brand-primary text-white"
-              : "bg-gray-100 text-brand-muted"
-          }`
-        }
-      >
-        <RefreshCw className="w-3.5 h-3.5" />
-        <span>Pindaan</span>
-      </NavLink>
-
-      <NavLink
         to="/admin/sesi"
         className={({ isActive }) =>
           `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
@@ -107,7 +93,7 @@ export function AdminMobileNav() {
       </NavLink>
 
       <NavLink
-        to="/admin/audit"
+        to="/admin/tetapan"
         className={({ isActive }) =>
           `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
             isActive
@@ -116,8 +102,8 @@ export function AdminMobileNav() {
           }`
         }
       >
-        <History className="w-3.5 h-3.5" />
-        <span>Audit</span>
+        <Settings2 className="w-3.5 h-3.5" />
+        <span>Tetapan</span>
       </NavLink>
     </div>
   );
@@ -223,7 +209,7 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
           </div>
 
           {/* Quick Stats Grid */}
-          <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Link
               to="/admin/ahli?status=active"
               className="bg-brand-surface border border-gray-200 p-4 rounded-xl shadow-sm hover:border-brand-primary transition-all space-y-2"
@@ -270,39 +256,26 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
               </span>
             </Link>
 
-            <Link
-              to="/admin/pembetulan"
-              className="bg-brand-surface border border-gray-200 p-4 rounded-xl shadow-sm hover:border-brand-primary transition-all relative space-y-2"
+            <a
+              href="#pendaftaran-terbaru"
+              className={`relative space-y-2 rounded-xl border p-4 shadow-sm transition-all hover:border-brand-accent ${
+                stats.newRegistrations > 0
+                  ? "border-amber-300 bg-amber-50/50"
+                  : "border-gray-200 bg-brand-surface"
+              }`}
             >
-              {stats.pendingCorrections > 0 && (
-                <span className="absolute top-2 right-2 bg-brand-accent text-brand-text text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                  {stats.pendingCorrections} baru
+              {stats.newRegistrations > 0 && (
+                <span className="absolute right-2 top-2 rounded-full bg-brand-accent px-1.5 py-0.5 text-[9px] font-bold text-brand-text">
+                  30 hari
                 </span>
               )}
-              <span className="text-[10px] font-bold text-brand-muted uppercase block">
-                Pindaan Profil
+              <span className="block text-[10px] font-bold uppercase text-brand-muted">
+                Ahli Baharu
               </span>
-              <span className="text-xl sm:text-2xl font-extrabold text-brand-text">
-                {stats.pendingCorrections}
+              <span className="text-xl font-extrabold text-brand-accent sm:text-2xl">
+                {stats.newRegistrations}
               </span>
-            </Link>
-
-            <Link
-              to="/admin/ahli?status=needs_review"
-              className="bg-brand-surface border border-gray-200 p-4 rounded-xl shadow-sm hover:border-brand-danger transition-all relative space-y-2"
-            >
-              {stats.needsReview > 0 && (
-                <span className="absolute top-2 right-2 bg-brand-danger text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                  {stats.needsReview}
-                </span>
-              )}
-              <span className="text-[10px] font-bold text-brand-muted uppercase block">
-                Perlu Semakan
-              </span>
-              <span className="text-xl sm:text-2xl font-extrabold text-brand-danger">
-                {stats.needsReview}
-              </span>
-            </Link>
+            </a>
           </section>
 
           {/* Detailed stats overview banner */}
@@ -315,7 +288,10 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
           </section>
 
           {/* Recent Members / Activity card */}
-          <section className="bg-brand-surface border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 space-y-4">
+          <section
+            id="pendaftaran-terbaru"
+            className="scroll-mt-24 bg-brand-surface border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 space-y-4"
+          >
             <h3 className="font-bold text-brand-text text-sm sm:text-base border-b border-gray-100 pb-2">
               Pendaftaran / Kemaskini Terbaru
             </h3>

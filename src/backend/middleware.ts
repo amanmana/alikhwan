@@ -194,7 +194,7 @@ export const adminAuth: MiddlewareHandler = async (c, next) => {
     return c.json({ error: "Kata kunci pentadbir tidak sah." }, 401);
   }
 
-  // Pass a static identifier for audit logs
+  // Pass a static identifier for admin-owned records.
   c.set("adminSessionId", "admin-keyword-session");
 
   await next();

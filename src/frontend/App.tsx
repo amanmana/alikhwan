@@ -15,15 +15,15 @@ const MembershipCheck = lazy(() => import("./pages/MembershipCheck.tsx"));
 const AccountClaim = lazy(() => import("./pages/AccountClaim.tsx"));
 const Registration = lazy(() => import("./pages/Registration.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword.tsx"));
 const Profile = lazy(() => import("./pages/Profile.tsx"));
 const PrivacyNotice = lazy(() => import("./pages/PrivacyNotice.tsx"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin.tsx"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard.tsx"));
 const AdminMembers = lazy(() => import("./pages/AdminMembers.tsx"));
 const AdminClaims = lazy(() => import("./pages/AdminClaims.tsx"));
-const AdminCorrections = lazy(() => import("./pages/AdminCorrections.tsx"));
 const AdminSessions = lazy(() => import("./pages/AdminSessions.tsx"));
-const AdminAudit = lazy(() => import("./pages/AdminAudit.tsx"));
+const AdminSettings = lazy(() => import("./pages/AdminSettings.tsx"));
 const Errors = lazy(() => import("./pages/Errors.tsx"));
 
 // Scroll to top helper on route change
@@ -125,7 +125,12 @@ export default function App() {
   }
 
   return (
-    <Router>
+    <Router
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <ScrollToTop />
       <Suspense
         fallback={
@@ -150,6 +155,12 @@ export default function App() {
               ) : (
                 <Login onAuthSuccess={handleAuthSuccess} />
               )
+            }
+          />
+          <Route
+            path="/lupa-kata-laluan"
+            element={
+              user ? <Navigate to="/profil" replace /> : <ForgotPassword />
             }
           />
           <Route
@@ -201,7 +212,20 @@ export default function App() {
             path="/admin/ahli"
             element={
               isAdmin ? (
-                <AdminMembers onLogout={handleAdminLogout} />
+                <AdminMembers key="all-members" onLogout={handleAdminLogout} />
+              ) : (
+                <Navigate to="/admin/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/admin/ahli/:memberId"
+            element={
+              isAdmin ? (
+                <AdminMembers
+                  key="member-details"
+                  onLogout={handleAdminLogout}
+                />
               ) : (
                 <Navigate to="/admin/login" replace />
               )
@@ -211,7 +235,12 @@ export default function App() {
             path="/admin/pendaftaran"
             element={
               isAdmin ? (
-                <AdminMembers onLogout={handleAdminLogout} />
+                <AdminMembers
+                  key="pending-members"
+                  onLogout={handleAdminLogout}
+                  initialStatus="pending"
+                  pageTitle="Kelulusan Ahli"
+                />
               ) : (
                 <Navigate to="/admin/login" replace />
               )
@@ -228,16 +257,6 @@ export default function App() {
             }
           />
           <Route
-            path="/admin/pembetulan"
-            element={
-              isAdmin ? (
-                <AdminCorrections onLogout={handleAdminLogout} />
-              ) : (
-                <Navigate to="/admin/login" replace />
-              )
-            }
-          />
-          <Route
             path="/admin/sesi"
             element={
               isAdmin ? (
@@ -248,10 +267,10 @@ export default function App() {
             }
           />
           <Route
-            path="/admin/audit"
+            path="/admin/tetapan"
             element={
               isAdmin ? (
-                <AdminAudit onLogout={handleAdminLogout} />
+                <AdminSettings onLogout={handleAdminLogout} />
               ) : (
                 <Navigate to="/admin/login" replace />
               )

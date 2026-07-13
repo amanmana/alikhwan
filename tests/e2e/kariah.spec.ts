@@ -112,6 +112,12 @@ test.describe("e-Kariah Al-Ikhwan E2E Journeys", () => {
         },
       });
     });
+    await page.route(
+      "/api/public/legacy-claim-status/legacy-uuid-1",
+      async (route) => {
+        await route.fulfill({ json: { claimable: true } });
+      },
+    );
 
     await page.goto("/semak-keahlian");
     await page.fill(
@@ -125,6 +131,76 @@ test.describe("e-Kariah Al-Ikhwan E2E Journeys", () => {
     await claimButton.click();
     await expect(page).toHaveURL(/\/tuntut-akaun$/);
     await expect(page.locator("text=AHMAD BIN IBRAHIM")).toBeVisible();
+  });
+
+  test("Journey 3b: Claimed legacy record directs the member to login", async ({
+    page,
+  }) => {
+    await page.route("/api/public/legacy-search**", async (route) => {
+      await route.fulfill({
+        json: {
+          members: [
+            {
+              fullName: "Mohd Akhmal Abd Manaf",
+              claimState: "claimed",
+            },
+          ],
+        },
+      });
+    });
+
+    await page.goto("/semak-keahlian");
+    await page.fill('input[placeholder="Contoh: Ahmad bin Ibrahim"]', "akhmal");
+    await page.click('button:has-text("Cari Nama Saya")');
+
+    await expect(page.getByText("Rekod keahlian ditemui")).toBeVisible();
+    await expect(page.getByText("Akaun telah dituntut")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Ini Rekod Saya" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Log Masuk Akaun" }),
+    ).toHaveAttribute("href", "/log-masuk");
+  });
+
+  test("Journey 3c: Claim page revalidates and blocks a stale claimed profile", async ({
+    page,
+  }) => {
+    await page.route("/api/public/legacy-search**", async (route) => {
+      await route.fulfill({
+        json: {
+          members: [
+            {
+              id: "stale-member-id",
+              fullName: "Mohd Akhmal Abd Manaf",
+              address: "Jalan PUJ 2/26",
+              claimState: "claimable",
+            },
+          ],
+        },
+      });
+    });
+    await page.route(
+      "/api/public/legacy-claim-status/stale-member-id",
+      async (route) => {
+        await route.fulfill({ json: { claimable: false } });
+      },
+    );
+
+    await page.goto("/semak-keahlian");
+    await page.fill('input[placeholder="Contoh: Ahmad bin Ibrahim"]', "akhmal");
+    await page.click('button:has-text("Cari Nama Saya")');
+    await page.getByRole("button", { name: "Ini Rekod Saya" }).click();
+
+    await expect(page).toHaveURL(/\/tuntut-akaun$/);
+    await expect(page.getByText("Akaun Telah Dituntut")).toBeVisible();
+    await expect(
+      page.getByText("Tuntutan kedua tidak dibenarkan."),
+    ).toBeVisible();
+    await expect(page.locator("#claim-ic")).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Log Masuk Akaun" }),
+    ).toBeVisible();
   });
 
   test("Journey 4: Admin Magic Keyword Enrollment", async ({ page }) => {
@@ -312,5 +388,144 @@ test.describe("e-Kariah Al-Ikhwan E2E Journeys", () => {
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Simpan Status Baharu" }).click();
     await expect.poll(() => submittedStatus).toBe("inactive");
+  });
+
+  test("Journey 7: Approval dashboard card opens the pending member queue", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("alikhwan_admin_auth", "true");
+    });
+
+    let requestedStatus: string | null = null;
+    await page.route("/api/admin/dashboard", async (route) => {
+      await route.fulfill({
+        json: {
+          stats: {
+            totalActive: 10,
+            pendingRegistrations: 2,
+            pendingClaims: 0,
+            newRegistrations: 2,
+            unclaimedActive: 5,
+          },
+          recentMembers: [],
+        },
+      });
+    });
+    await page.route("/api/admin/members?*", async (route) => {
+      requestedStatus = new URL(route.request().url()).searchParams.get(
+        "status",
+      );
+      await route.fulfill({
+        json: {
+          members: [],
+          pagination: { total: 0, page: 1, totalPages: 1 },
+        },
+      });
+    });
+
+    await page.goto("/admin");
+    await expect(page.getByRole("link", { name: /Ahli Baharu/ })).toContainText(
+      "2",
+    );
+    await page.getByRole("link", { name: /Kelulusan Ahli/ }).click();
+
+    await expect(page).toHaveURL(/\/admin\/pendaftaran$/);
+    await expect(
+      page.getByRole("heading", { name: "Kelulusan Ahli" }),
+    ).toBeVisible();
+    await expect(page.locator("select").nth(0)).toHaveValue("pending");
+    await expect.poll(() => requestedStatus).toBe("pending");
+  });
+
+  test("Journey 8: Admin enables automatic registration approval", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("alikhwan_admin_auth", "true");
+    });
+
+    let submittedMode: string | null = null;
+    await page.route(
+      "/api/admin/settings/registration-approval",
+      async (route) => {
+        if (route.request().method() === "PUT") {
+          submittedMode = route.request().postDataJSON().mode;
+          await route.fulfill({
+            json: {
+              success: true,
+              mode: "automatic",
+              message: "Auto lulus telah diaktifkan untuk pendaftaran baharu.",
+            },
+          });
+          return;
+        }
+
+        await route.fulfill({
+          json: { mode: "manual", updatedAt: null },
+        });
+      },
+    );
+
+    await page.goto("/admin/tetapan");
+    await expect(
+      page.getByRole("heading", { name: "Tetapan Pentadbir" }),
+    ).toBeVisible();
+    await expect(page.locator('input[value="manual"]')).toBeChecked();
+
+    await page.locator('input[value="automatic"]').check();
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Simpan Tetapan" }).click();
+
+    await expect.poll(() => submittedMode).toBe("automatic");
+    await expect(
+      page.getByText("Auto lulus telah diaktifkan untuk pendaftaran baharu."),
+    ).toBeVisible();
+    await expect(page.getByText("Semasa: Auto lulus")).toBeVisible();
+  });
+
+  test("Journey 9: Recent member link opens the requested member details", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("alikhwan_admin_auth", "true");
+    });
+
+    await page.route("/api/admin/members?*", async (route) => {
+      await route.fulfill({
+        json: {
+          members: [],
+          pagination: { total: 0, page: 1, totalPages: 1 },
+        },
+      });
+    });
+    await page.route("/api/admin/members/legacy-uuid-210", async (route) => {
+      await route.fulfill({
+        json: {
+          member: {
+            id: "legacy-uuid-210",
+            legacy_id: "LEG-210",
+            full_name: "Tasrani Kamari",
+            ic_normalized: null,
+            phone_normalized: null,
+            address: "Kariah Al-Ikhwan",
+            general_area: null,
+            membership_status: "active",
+            account_state: "unclaimed",
+            directory_visible: 0,
+            registration_source: "legacy_import",
+            admin_notes: null,
+          },
+          account: null,
+        },
+      });
+    });
+
+    await page.goto("/admin/ahli/legacy-uuid-210");
+
+    await expect(
+      page.getByRole("heading", { name: "Butiran Rekod Kariah" }),
+    ).toBeVisible();
+    await expect(page.getByText("Tasrani Kamari").last()).toBeVisible();
   });
 });

@@ -5,12 +5,10 @@ PRAGMA foreign_keys = ON;
 
 -- Clear existing data (optional, but good for clean seeding)
 DELETE FROM consent_records;
-DELETE FROM audit_logs;
 DELETE FROM member_sessions;
 DELETE FROM admin_sessions;
 DELETE FROM member_accounts;
 DELETE FROM account_claims;
-DELETE FROM correction_requests;
 DELETE FROM members;
 DELETE FROM members_fts;
 
@@ -97,7 +95,7 @@ VALUES (
   '+60176543210', 
   'No. 8, Lorong Kemboja 2, Taman Kemboja', 
   'Taman Kemboja', 
-  'pending', 
+  'pending',
   'active', 
   0, 
   NULL, 
@@ -107,7 +105,7 @@ VALUES (
   '2026-07-13T01:00:00.000Z'
 );
 
--- Member flagged as needs_review (underage or invalid date)
+-- Member pending administrator approval
 INSERT INTO members (id, legacy_id, full_name, full_name_normalized, ic_normalized, ic_last4, birth_date, phone_normalized, address, general_area, membership_status, account_state, directory_visible, directory_consent_at, registration_source, admin_notes, created_at, updated_at)
 VALUES (
   'member-uuid-4', 
@@ -120,7 +118,7 @@ VALUES (
   '+60132221111', 
   'No. 2, Jalan Indah 5/1, Taman Desa Indah', 
   'Taman Desa Indah', 
-  'needs_review', 
+  'pending', 
   'unclaimed', 
   0, 
   NULL, 

@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { setCookie } from "hono/cookie";
-import { Bindings, createAuditLog } from "../db.ts";
+import { Bindings } from "../db.ts";
 import { memberAuth } from "../middleware.ts";
 import {
   passwordChangeSchema,
-  profileCorrectionSchema,
+  profileUpdateSchema,
 } from "../../shared/schemas.ts";
 import {
   hashPassword,
@@ -38,14 +38,6 @@ app.get("/", async (c) => {
       return c.json({ error: "Maklumat profil tidak ditemui." }, 404);
     }
 
-    // Get active correction requests if any
-    const corrections = await c.env.DB.prepare(
-      "SELECT id, requested_changes_json, status, requested_at FROM correction_requests WHERE member_id = ? AND status = 'pending'",
-    )
-      .bind(memberId)
-      .all()
-      .then((res) => res.results);
-
     return c.json({
       member: {
         id: member.id,
@@ -63,7 +55,6 @@ app.get("/", async (c) => {
         createdAt: member.created_at,
         updatedAt: member.updated_at,
       },
-      pendingCorrections: corrections,
     });
   } catch (err) {
     return c.json({ error: "Ralat pelayan semasa mendapatkan profil." }, 500);
@@ -74,7 +65,6 @@ app.get("/", async (c) => {
 app.post("/change-password", async (c) => {
   const accountId = c.get("accountId");
   const sessionId = c.get("sessionId");
-  const memberId = c.get("memberId");
   const body = await c.req.json();
 
   const parsed = passwordChangeSchema.safeParse(body);
@@ -145,18 +135,6 @@ app.post("/change-password", async (c) => {
       maxAge: 30 * 24 * 60 * 60,
     });
 
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "member",
-      memberId,
-      "PASSWORD_CHANGE",
-      "member_accounts",
-      accountId,
-      null,
-      "Ahli menukar kata laluan peribadi",
-    );
-
     return c.json({
       success: true,
       message: "Kata laluan berjaya dikemas kini.",
@@ -169,12 +147,12 @@ app.post("/change-password", async (c) => {
   }
 });
 
-// 3. POST /api/me/correction-requests (Submit Profile Correction Request)
-app.post("/correction-requests", async (c) => {
+// 3. PATCH /api/me/profile (Update own profile)
+app.patch("/profile", async (c) => {
   const memberId = c.get("memberId");
   const body = await c.req.json();
 
-  const parsed = profileCorrectionSchema.safeParse(body);
+  const parsed = profileUpdateSchema.safeParse(body);
   if (!parsed.success) {
     return c.json({ error: parsed.error.errors[0].message }, 400);
   }
@@ -202,7 +180,6 @@ app.post("/correction-requests", async (c) => {
   }
 
   try {
-    const claimId = crypto.randomUUID();
     const nowStr = new Date().toISOString();
     const updates: string[] = [];
     const binds: any[] = [];
@@ -248,43 +225,14 @@ app.post("/correction-requests", async (c) => {
     const updateQuery = `UPDATE members SET ${updates.join(", ")} WHERE id = ?`;
     const updateMember = c.env.DB.prepare(updateQuery).bind(...binds);
 
-    const insertRequest = c.env.DB.prepare(
-      `INSERT INTO correction_requests (id, member_id, requested_changes_json, status, requested_at, reviewed_at, reviewed_by)
-       VALUES (?, ?, ?, 'approved', ?, ?, 'system')`,
-    ).bind(claimId, memberId, JSON.stringify(requestedChanges), nowStr, nowStr);
-
-    const batch: any[] = [updateMember, insertRequest];
-
-    if (requestedChanges.fullName) {
-      const updateFts = c.env.DB.prepare(
-        "UPDATE members_fts SET full_name_normalized = ? WHERE member_id = ?",
-      ).bind(requestedChanges.fullName.toUpperCase(), memberId);
-      batch.push(updateFts);
-    }
-
-    await c.env.DB.batch(batch);
-
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "member",
-      memberId,
-      "PROFILE_UPDATE",
-      "members",
-      memberId,
-      JSON.stringify(requestedChanges),
-      "Ahli mengemaskini maklumat profil (Auto-Lulus)",
-    );
+    await updateMember.run();
 
     return c.json({
       success: true,
-      message: "Maklumat profil anda berjaya dikemaskini.",
+      message: "Maklumat profil anda berjaya dikemas kini.",
     });
   } catch (err) {
-    return c.json(
-      { error: "Ralat pelayan semasa menghantar permohonan pembetulan." },
-      500,
-    );
+    return c.json({ error: "Ralat pelayan semasa mengemas kini profil." }, 500);
   }
 });
 
@@ -307,25 +255,13 @@ app.patch("/directory-preference", async (c) => {
       .bind(visible, visible ? nowStr : null, nowStr, memberId)
       .run();
 
-    // Consent logs audit table
+    // Keep the member's explicit directory-consent history.
     await c.env.DB.prepare(
       `INSERT INTO consent_records (id, member_id, consent_type, notice_version, granted, created_at)
        VALUES (?, ?, 'directory_visibility', '1.0', ?, ?)`,
     )
       .bind(crypto.randomUUID(), memberId, visible, nowStr)
       .run();
-
-    // Audit log
-    await createAuditLog(
-      c.env.DB,
-      "member",
-      memberId,
-      "DIRECTORY_PREFERENCE_UPDATE",
-      "members",
-      memberId,
-      JSON.stringify({ directoryVisible: visible === 1 }),
-      "Ahli mengemaskini status paparan direktori",
-    );
 
     return c.json({
       success: true,

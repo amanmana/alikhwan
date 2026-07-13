@@ -1,13 +1,15 @@
 import { Hono } from "hono";
 import { setCookie, deleteCookie, getCookie } from "hono/cookie";
-import { Bindings, createAuditLog } from "../db.ts";
-import { loginSchema } from "../../shared/schemas.ts";
+import { Bindings } from "../db.ts";
+import { loginSchema, passwordResetSchema } from "../../shared/schemas.ts";
+import { cleanIc, normalizePhone } from "../../shared/validation.ts";
 import {
+  hashPassword,
   verifyPassword,
   generateSessionToken,
   hashSessionToken,
 } from "../auth.ts";
-import { rateLimiter, memberAuth } from "../middleware.ts";
+import { rateLimiter, memberAuth, verifyTurnstile } from "../middleware.ts";
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -89,18 +91,6 @@ app.post("/login", rateLimiter("login-attempt", 10, 60), async (c) => {
         )
           .bind(newFailedCount, lockedUntilStr, nowStr, account.id)
           .run();
-
-        // Audit log locking
-        await createAuditLog(
-          c.env.DB,
-          "system",
-          null,
-          "ACCOUNT_LOCK",
-          "member_accounts",
-          account.id,
-          JSON.stringify({ reason: "Too many failed login attempts" }),
-          "Akaun dikunci secara automatik",
-        );
       } else {
         // Just increment failed count
         await c.env.DB.prepare(
@@ -155,18 +145,6 @@ app.post("/login", rateLimiter("login-attempt", 10, 60), async (c) => {
       maxAge: 30 * 24 * 60 * 60,
     });
 
-    // Audit log login
-    await createAuditLog(
-      c.env.DB,
-      "member",
-      account.member_id,
-      "LOGIN_SUCCESS",
-      "members",
-      account.member_id,
-      null,
-      "Ahli log masuk berjaya",
-    );
-
     return c.json({
       success: true,
       member: {
@@ -181,10 +159,96 @@ app.post("/login", rateLimiter("login-attempt", 10, 60), async (c) => {
   }
 });
 
-// 2. POST /api/auth/logout (Member Logout)
+// 2. POST /api/auth/reset-password (Self-service reset using matching IC and phone)
+app.post(
+  "/reset-password",
+  rateLimiter("password-reset", 5, 10 * 60),
+  async (c) => {
+    const body = await c.req.json();
+    const parsed = passwordResetSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.errors[0].message }, 400);
+    }
+
+    const isTurnstileValid = await verifyTurnstile(
+      parsed.data.turnstileToken,
+      c.env.TURNSTILE_SECRET_KEY,
+    );
+    if (!isTurnstileValid) {
+      return c.json(
+        { error: "Pengesahan keselamatan gagal. Sila cuba lagi." },
+        400,
+      );
+    }
+
+    const icNormalized = cleanIc(parsed.data.ic);
+    const phoneNormalized = normalizePhone(parsed.data.phone);
+    const nowStr = new Date().toISOString();
+
+    try {
+      const account = await c.env.DB.prepare(
+        `SELECT a.id
+         FROM member_accounts a
+         JOIN members m ON a.member_id = m.id
+         WHERE m.ic_normalized = ?
+           AND m.phone_normalized = ?
+           AND m.membership_status = 'active'
+           AND m.account_state = 'active'
+         LIMIT 1`,
+      )
+        .bind(icNormalized, phoneNormalized)
+        .first<any>();
+
+      if (!account) {
+        return c.json(
+          {
+            error:
+              "No. IC atau nombor telefon tidak sepadan dengan akaun aktif.",
+          },
+          400,
+        );
+      }
+
+      const passwordHash = await hashPassword(parsed.data.newPassword);
+
+      await c.env.DB.prepare(
+        `UPDATE member_accounts
+         SET password_hash = ?, password_changed_at = ?, failed_login_count = 0,
+             locked_until = NULL, updated_at = ?
+         WHERE id = ?`,
+      )
+        .bind(passwordHash, nowStr, nowStr, account.id)
+        .run();
+
+      await c.env.DB.prepare(
+        "UPDATE member_sessions SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL",
+      )
+        .bind(nowStr, account.id)
+        .run();
+
+      deleteCookie(c, "__Host-alikhwan_session", {
+        path: "/",
+        secure: true,
+        sameSite: "Strict",
+      });
+
+      return c.json({
+        success: true,
+        message:
+          "Kata laluan berjaya ditetapkan semula. Sila log masuk menggunakan kata laluan baharu.",
+      });
+    } catch {
+      return c.json(
+        { error: "Ralat semasa menetapkan semula kata laluan." },
+        500,
+      );
+    }
+  },
+);
+
+// 3. POST /api/auth/logout (Member Logout)
 app.post("/logout", memberAuth, async (c) => {
   const sessionId = c.get("sessionId");
-  const memberId = c.get("memberId");
   const nowStr = new Date().toISOString();
 
   try {
@@ -202,25 +266,13 @@ app.post("/logout", memberAuth, async (c) => {
       sameSite: "Strict",
     });
 
-    // Audit log logout
-    await createAuditLog(
-      c.env.DB,
-      "member",
-      memberId,
-      "LOGOUT",
-      "members",
-      memberId,
-      null,
-      "Ahli log keluar berjaya",
-    );
-
     return c.json({ success: true });
   } catch (err) {
     return c.json({ error: "Ralat pelayan semasa log keluar." }, 500);
   }
 });
 
-// 3. GET /api/auth/session (Get Session State for React app launch)
+// 4. GET /api/auth/session (Get Session State for React app launch)
 app.get("/session", async (c) => {
   const token = getCookie(c, "__Host-alikhwan_session");
   if (!token) {
