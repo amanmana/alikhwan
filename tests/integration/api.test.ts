@@ -116,6 +116,45 @@ describe("Hono API Integration & Security Tests", () => {
     expect(body.error).toContain("No. IC ini telah didaftarkan");
   });
 
+  it("POST /api/public/register - should pause when an unclaimed legacy name matches", async () => {
+    const mockDb: any = {
+      prepare: (sql: string) => ({
+        bind: () => ({
+          first: async () => {
+            if (sql.includes("full_name_normalized")) {
+              return { id: "legacy-member-id" };
+            }
+            return null;
+          },
+        }),
+      }),
+    };
+
+    const res = await app.request(
+      "/api/public/register",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: "Ahmad Ibrahim",
+          ic: "800512-10-5431",
+          phone: "012-3456789",
+          address: "No. 15, Lorong Indah, Seksyen 5, BBB",
+          username: "ahmad_ibrahim",
+          password: "KariahSecret123!",
+          confirmPassword: "KariahSecret123!",
+          privacyConsent: true,
+          turnstileToken: "mock-turnstile-token",
+        }),
+      },
+      createMockEnv(mockDb),
+    );
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as any;
+    expect(body.code).toBe("POSSIBLE_LEGACY_MATCH");
+  });
+
   it("GET /api/me - should block access if session cookie is absent (IDOR block)", async () => {
     const mockDb: any = {};
     const res = await app.request("/api/me", {}, createMockEnv(mockDb));
@@ -130,6 +169,181 @@ describe("Hono API Integration & Security Tests", () => {
       createMockEnv(mockDb),
     );
     expect(res.status).toBe(401); // Unauthorized (missing __Host-alikhwan_admin cookie)
+  });
+
+  it("DELETE /api/admin/members/:id - should delete only an unclaimed legacy record", async () => {
+    let batchSize = 0;
+    const mockDb: any = {
+      prepare: (sql: string) => ({
+        bind: (...params: any[]) => ({
+          sql,
+          params,
+          first: async () => {
+            if (sql.includes("FROM members WHERE id")) {
+              return {
+                id: "legacy-id",
+                full_name: "Tasrani Kamari",
+                registration_source: "legacy_import",
+                account_state: "unclaimed",
+              };
+            }
+            return null;
+          },
+        }),
+      }),
+      batch: async (statements: any[]) => {
+        batchSize = statements.length;
+        return [];
+      },
+    };
+
+    const res = await app.request(
+      "/api/admin/members/legacy-id",
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer SecretAdminKeyword",
+        },
+        body: JSON.stringify({
+          reason: "Rekod import pendua",
+          confirmationName: "Tasrani Kamari",
+        }),
+      },
+      createMockEnv(mockDb),
+    );
+
+    expect(res.status).toBe(200);
+    expect(batchSize).toBe(2); // audit log + guarded member deletion
+  });
+
+  it("DELETE /api/admin/members/:id - should protect claimed accounts", async () => {
+    let batchCalled = false;
+    const mockDb: any = {
+      prepare: (sql: string) => ({
+        bind: () => ({
+          first: async () => {
+            if (sql.includes("FROM members WHERE id")) {
+              return {
+                id: "active-id",
+                full_name: "Ahli Aktif",
+                registration_source: "legacy_import",
+                account_state: "active",
+              };
+            }
+            return null;
+          },
+        }),
+      }),
+      batch: async () => {
+        batchCalled = true;
+        return [];
+      },
+    };
+
+    const res = await app.request(
+      "/api/admin/members/active-id",
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer SecretAdminKeyword",
+        },
+        body: JSON.stringify({
+          reason: "Permintaan ujian",
+          confirmationName: "Ahli Aktif",
+        }),
+      },
+      createMockEnv(mockDb),
+    );
+
+    expect(res.status).toBe(409);
+    expect(batchCalled).toBe(false);
+  });
+
+  it("POST /api/admin/members/:id/set-status - should allow a deliberate status correction", async () => {
+    let updateParams: any[] | null = null;
+    const mockDb: any = {
+      prepare: (sql: string) => ({
+        bind: (...params: any[]) => ({
+          first: async () => {
+            if (sql.includes("SELECT membership_status")) {
+              return {
+                membership_status: "moved",
+                full_name: "Ahli Dibetulkan",
+              };
+            }
+            return null;
+          },
+          run: async () => {
+            if (sql.includes("UPDATE members SET membership_status")) {
+              updateParams = params;
+            }
+            return { success: true };
+          },
+        }),
+      }),
+    };
+
+    const res = await app.request(
+      "/api/admin/members/member-id/set-status",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer SecretAdminKeyword",
+        },
+        body: JSON.stringify({
+          status: "active",
+          reason: "Pembetulan selepas pengesahan pentadbir",
+        }),
+      },
+      createMockEnv(mockDb),
+    );
+
+    expect(res.status).toBe(200);
+    expect(updateParams?.[0]).toBe("active");
+    const body = (await res.json()) as any;
+    expect(body.message).toContain("Aktif");
+  });
+
+  it("POST /api/admin/members/:id/set-status - should reject the current status", async () => {
+    let updateCalled = false;
+    const mockDb: any = {
+      prepare: (sql: string) => ({
+        bind: () => ({
+          first: async () => ({
+            membership_status: "active",
+            full_name: "Ahli Aktif",
+          }),
+          run: async () => {
+            if (sql.includes("UPDATE members SET membership_status")) {
+              updateCalled = true;
+            }
+            return { success: true };
+          },
+        }),
+      }),
+    };
+
+    const res = await app.request(
+      "/api/admin/members/member-id/set-status",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer SecretAdminKeyword",
+        },
+        body: JSON.stringify({
+          status: "active",
+          reason: "Tidak sepatutnya berubah",
+        }),
+      },
+      createMockEnv(mockDb),
+    );
+
+    expect(res.status).toBe(400);
+    expect(updateCalled).toBe(false);
   });
 
   it("POST /api/admin/login - should fail with wrong keyword", async () => {

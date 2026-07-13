@@ -8,7 +8,7 @@ export default defineConfig({
   workers: 1, // sequential runs to prevent SQLite D1 lock collisions
   reporter: "list",
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:5173",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },

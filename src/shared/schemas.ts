@@ -67,6 +67,7 @@ export const registrationSchema = z
       .string()
       .min(1, { message: "Pengesahan kata laluan diperlukan." }),
     directoryConsent: z.boolean().default(false),
+    confirmedNotLegacy: z.boolean().default(false),
     privacyConsent: z.boolean().refine((val) => val === true, {
       message: "Anda mesti bersetuju dengan Notis Privasi.",
     }),

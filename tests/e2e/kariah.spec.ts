@@ -99,34 +99,32 @@ test.describe("e-Kariah Al-Ikhwan E2E Journeys", () => {
   });
 
   test("Journey 3: Membership Check & Account Claim Flow", async ({ page }) => {
-    await page.goto("/semak-keahlian");
-
-    // Mock verification response (match found)
-    await page.route("/api/public/membership-check", async (route) => {
+    await page.route("/api/public/legacy-search**", async (route) => {
       await route.fulfill({
         json: {
-          success: true,
-          matched: true,
-          message:
-            "Jika maklumat anda sepadan dengan rekod kami, anda boleh meneruskan permohonan tuntutan akaun.",
+          members: [
+            {
+              id: "legacy-uuid-1",
+              fullName: "AHMAD BIN IBRAHIM",
+              address: "Jalan PUJ 2/2",
+            },
+          ],
         },
       });
     });
 
+    await page.goto("/semak-keahlian");
     await page.fill(
-      'input[placeholder="Contoh: 801215-01-4321"]',
-      "800512-10-5431",
+      'input[placeholder="Contoh: Ahmad bin Ibrahim"]',
+      "Ahmad bin Ibrahim",
     );
-    await page.fill('input[placeholder="Contoh: 012-3456789"]', "012-3456789");
+    await page.click('button:has-text("Cari Nama Saya")');
 
-    // Click submit
-    await page.click('button:has-text("Hantar Semakan")');
-
-    // Verify claim redirect button appears
-    const claimButton = page.locator(
-      'button:has-text("Teruskan ke Tuntutan Akaun")',
-    );
+    const claimButton = page.locator('button:has-text("Ini Rekod Saya")');
     await expect(claimButton).toBeVisible();
+    await claimButton.click();
+    await expect(page).toHaveURL(/\/tuntut-akaun$/);
+    await expect(page.locator("text=AHMAD BIN IBRAHIM")).toBeVisible();
   });
 
   test("Journey 4: Admin Magic Keyword Enrollment", async ({ page }) => {
@@ -152,5 +150,167 @@ test.describe("e-Kariah Al-Ikhwan E2E Journeys", () => {
         json: { success: true, message: "Daftar masuk pentadbir berjaya." },
       });
     });
+  });
+
+  test("Journey 5: Admin permanently deletes an unclaimed legacy duplicate", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("alikhwan_admin_auth", "true");
+    });
+
+    let deleteRequestReceived = false;
+    await page.route("/api/admin/members?*", async (route) => {
+      await route.fulfill({
+        json: {
+          members: [
+            {
+              id: "legacy-id",
+              full_name: "Tasrani Kamari",
+              ic_normalized: null,
+              phone_normalized: null,
+              membership_status: "active",
+              account_state: "unclaimed",
+              directory_visible: 0,
+            },
+          ],
+          pagination: { total: 1, page: 1, totalPages: 1 },
+        },
+      });
+    });
+
+    await page.route("/api/admin/members/legacy-id", async (route) => {
+      if (route.request().method() === "DELETE") {
+        deleteRequestReceived = true;
+        await route.fulfill({
+          json: {
+            success: true,
+            message: "Rekod ahli lama berjaya dipadam secara kekal.",
+          },
+        });
+        return;
+      }
+
+      await route.fulfill({
+        json: {
+          member: {
+            id: "legacy-id",
+            legacy_id: "LEG-001",
+            full_name: "Tasrani Kamari",
+            ic_normalized: null,
+            phone_normalized: null,
+            address: "Jalan PUJ 2/2",
+            general_area: null,
+            membership_status: "active",
+            account_state: "unclaimed",
+            directory_visible: 0,
+            registration_source: "legacy_import",
+            admin_notes: null,
+          },
+          account: null,
+        },
+      });
+    });
+
+    await page.goto("/admin/ahli");
+    await page.click('button:has-text("Urus")');
+    await expect(page.locator("text=Zon Bahaya")).toBeVisible();
+    await page.click('button:has-text("Padam Rekod Kekal")');
+
+    await page.fill(
+      'textarea[placeholder="Masukkan sebab tindakan..."]',
+      "Rekod import pendua",
+    );
+    await page.fill("#delete-confirmation-name", "Tasrani Kamari");
+
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.click('button:has-text("Padam Kekal")');
+    await expect.poll(() => deleteRequestReceived).toBe(true);
+  });
+
+  test("Journey 6: Admin changes a member status without an accidental default", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("alikhwan_admin_auth", "true");
+    });
+
+    let submittedStatus: string | null = null;
+    await page.route("/api/admin/members?*", async (route) => {
+      await route.fulfill({
+        json: {
+          members: [
+            {
+              id: "member-active",
+              full_name: "Ahmad Ali",
+              ic_normalized: "800101015555",
+              phone_normalized: "60123456789",
+              membership_status: "active",
+              account_state: "active",
+              directory_visible: 1,
+            },
+          ],
+          pagination: { total: 1, page: 1, totalPages: 1 },
+        },
+      });
+    });
+
+    await page.route("/api/admin/members/member-active", async (route) => {
+      await route.fulfill({
+        json: {
+          member: {
+            id: "member-active",
+            legacy_id: null,
+            full_name: "Ahmad Ali",
+            ic_normalized: "800101015555",
+            phone_normalized: "60123456789",
+            address: "Jalan Kariah 1",
+            general_area: "Desa Al-Ikhwan",
+            membership_status: "active",
+            account_state: "active",
+            directory_visible: 1,
+            registration_source: "public_registration",
+            admin_notes: null,
+          },
+          account: { id: "account-1", username: "ahmad" },
+        },
+      });
+    });
+
+    await page.route(
+      "/api/admin/members/member-active/set-status",
+      async (route) => {
+        const body = route.request().postDataJSON();
+        submittedStatus = body.status;
+        await route.fulfill({
+          json: {
+            success: true,
+            message: "Status ahli berjaya dikemaskini.",
+          },
+        });
+      },
+    );
+
+    await page.goto("/admin/ahli");
+    await page.click('button:has-text("Urus")');
+    await page.click('button:has-text("Ubah Status")');
+
+    await expect(page.getByRole("radio", { checked: true })).toHaveCount(0);
+    await expect(
+      page.locator('input[type="radio"][value="active"]'),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Simpan Status Baharu" }),
+    ).toBeDisabled();
+
+    await page.locator('input[type="radio"][value="inactive"]').check();
+    await page.fill(
+      'textarea[placeholder^="Contoh: Pembetulan status"]',
+      "Ahli memohon keahlian dihentikan sementara",
+    );
+
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Simpan Status Baharu" }).click();
+    await expect.poll(() => submittedStatus).toBe("inactive");
   });
 });

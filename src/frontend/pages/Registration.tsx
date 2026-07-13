@@ -34,6 +34,9 @@ export default function Registration({
   const [directoryConsent, setDirectoryConsent] = useState(false); // MUST be unchecked by default!
   const [privacyConsent, setPrivacyConsent] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [checkingLegacy, setCheckingLegacy] = useState(false);
+  const [possibleLegacyMatches, setPossibleLegacyMatches] = useState<any[]>([]);
+  const [confirmedNotLegacy, setConfirmedNotLegacy] = useState(false);
 
   const handleIcChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const cleaned = e.target.value.replace(/[^\d]/g, "").substring(0, 12);
@@ -73,6 +76,39 @@ export default function Registration({
       return false;
     }
     return true;
+  };
+
+  const handleStep1Next = async () => {
+    if (!validateStep1()) return;
+
+    if (confirmedNotLegacy) {
+      setStep(2);
+      return;
+    }
+
+    setCheckingLegacy(true);
+    setPossibleLegacyMatches([]);
+    try {
+      const res = await fetch(
+        `/api/public/legacy-search?q=${encodeURIComponent(fullName.trim())}`,
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Semakan rekod lama gagal.");
+      }
+
+      const matches = data.members || [];
+      if (matches.length > 0) {
+        setPossibleLegacyMatches(matches);
+        return;
+      }
+
+      setStep(2);
+    } catch (err: any) {
+      setError(err.message || "Semakan rekod lama gagal. Sila cuba lagi.");
+    } finally {
+      setCheckingLegacy(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,6 +153,7 @@ export default function Registration({
           password,
           confirmPassword,
           directoryConsent,
+          confirmedNotLegacy,
           privacyConsent,
           turnstileToken,
         }),
@@ -124,6 +161,10 @@ export default function Registration({
 
       const data = await res.json();
       if (!res.ok) {
+        if (data.code === "POSSIBLE_LEGACY_MATCH") {
+          setStep(1);
+          setConfirmedNotLegacy(false);
+        }
         throw new Error(data.error || "Pendaftaran gagal dilaraskan.");
       }
 
@@ -202,7 +243,11 @@ export default function Registration({
                   type="text"
                   placeholder="Contoh: Ahmad bin Ibrahim"
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                    setPossibleLegacyMatches([]);
+                    setConfirmedNotLegacy(false);
+                  }}
                   autoComplete="name"
                   required
                   className="w-full px-3 py-2.5 bg-brand-background border border-gray-300 rounded-lg text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
@@ -231,16 +276,77 @@ export default function Registration({
                 </span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (validateStep1()) setStep(2);
-                }}
-                className="w-full py-3 bg-brand-primary hover:bg-teal-800 text-white font-bold text-sm rounded-lg shadow-md transition-all flex items-center justify-center gap-2 min-h-[44px]"
-              >
-                <span>Seterusnya</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              {possibleLegacyMatches.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-brand-accent flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold text-brand-text">
+                        Rekod lama yang mungkin milik anda ditemui
+                      </p>
+                      <p className="text-[10px] text-brand-muted mt-1 leading-relaxed">
+                        Tuntut rekod lama untuk mengelakkan pendaftaran
+                        berganda.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {possibleLegacyMatches.map((member) => (
+                      <button
+                        key={member.id}
+                        type="button"
+                        onClick={() =>
+                          navigate("/tuntut-akaun", {
+                            state: {
+                              memberId: member.id,
+                              fullName: member.fullName,
+                              address: member.address,
+                            },
+                          })
+                        }
+                        className="w-full bg-white border border-amber-200 rounded-lg p-2.5 text-left hover:border-brand-primary"
+                      >
+                        <span className="block text-xs font-bold text-brand-text">
+                          {member.fullName}
+                        </span>
+                        <span className="block text-[10px] text-brand-muted mt-0.5">
+                          {member.address || "Kariah Al-Ikhwan"}
+                        </span>
+                        <span className="block text-[10px] font-bold text-brand-primary mt-1">
+                          Tuntut rekod ini →
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmedNotLegacy(true);
+                      setPossibleLegacyMatches([]);
+                      setStep(2);
+                    }}
+                    className="w-full text-[10px] text-brand-muted underline font-semibold py-2"
+                  >
+                    Tiada satu pun rekod ini milik saya — teruskan daftar
+                  </button>
+                </div>
+              )}
+
+              {possibleLegacyMatches.length === 0 && (
+                <button
+                  type="button"
+                  onClick={handleStep1Next}
+                  disabled={checkingLegacy}
+                  className="w-full py-3 bg-brand-primary hover:bg-teal-800 text-white font-bold text-sm rounded-lg shadow-md transition-all flex items-center justify-center gap-2 min-h-[44px] disabled:opacity-50"
+                >
+                  <span>
+                    {checkingLegacy ? "Menyemak Rekod Lama..." : "Seterusnya"}
+                  </span>
+                  {!checkingLegacy && <ArrowRight className="w-4 h-4" />}
+                </button>
+              )}
             </div>
           )}
 

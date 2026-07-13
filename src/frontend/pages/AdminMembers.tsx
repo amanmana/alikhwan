@@ -13,9 +13,12 @@ import {
   UserX,
   UserCheck,
   LockKeyhole,
+  Trash2,
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  MapPin,
+  CircleOff,
 } from "lucide-react";
 import Header from "../components/Header.tsx";
 import { AdminMobileNav } from "./AdminDashboard.tsx";
@@ -25,6 +28,8 @@ import {
   formatIcForDisplay,
   formatPhoneForDisplay,
 } from "../../shared/validation.ts";
+
+type EditableMembershipStatus = "active" | "inactive" | "moved" | "deceased";
 
 export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
   const navigate = useNavigate();
@@ -39,6 +44,31 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
       deceased: "Meninggal Dunia",
       needs_review: "Perlu Semakan",
     })[s] ?? s;
+
+  const actionLabel = (action: string) =>
+    ({
+      edit: "Kemas Kini Profil",
+      approve: "Luluskan Keahlian",
+      reject: "Tolak Keahlian",
+      "set-status": "Ubah Status Keahlian",
+      "reset-code": "Jana Kod Reset",
+      delete: "Padam Rekod Kekal",
+    })[action] ?? action;
+
+  const accountStateLabel = (state: string) =>
+    ({
+      unclaimed: "Belum Dituntut",
+      pending_claim: "Tuntutan Menunggu",
+      active: "Akaun Aktif",
+      locked: "Akaun Dikunci",
+    })[state] ?? state;
+
+  const registrationSourceLabel = (source: string) =>
+    ({
+      legacy_import: "Import sistem lama",
+      public_registration: "Pendaftaran awam",
+      admin_created: "Dicipta pentadbir",
+    })[source] ?? source;
 
   const [members, setMembers] = useState<any[]>([]);
   const [pagination, setPagination] = useState<any>(null);
@@ -73,16 +103,15 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
     | "edit"
     | "approve"
     | "reject"
-    | "deactivate"
-    | "activate"
     | "set-status"
     | "reset-code"
+    | "delete"
     | null
   >(null);
-  const [setStatusValue, setSetStatusValue] = useState<"moved" | "deceased">(
-    "moved",
-  );
+  const [setStatusValue, setSetStatusValue] =
+    useState<EditableMembershipStatus | null>(null);
   const [resetCodeResult, setResetCodeResult] = useState<any | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   const debounceTimerRef = useRef<any>(null);
 
@@ -143,6 +172,8 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
     setIsEditing(false);
     setActionType(null);
     setActionReason("");
+    setSetStatusValue(null);
+    setDeleteConfirmation("");
 
     try {
       const res = await adminFetch(`/api/admin/members/${memberId}`);
@@ -194,19 +225,30 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
     } else if (actionType === "reject") {
       url += "/reject";
       method = "POST";
-    } else if (actionType === "deactivate") {
-      url += "/deactivate";
-      method = "POST";
-    } else if (actionType === "activate") {
-      url += "/activate";
-      method = "POST";
     } else if (actionType === "set-status") {
+      if (
+        !setStatusValue ||
+        setStatusValue === selectedMember.membership_status
+      ) {
+        alert("Sila pilih status baharu yang berbeza daripada status semasa.");
+        return;
+      }
       url += "/set-status";
       method = "POST";
       body = { ...body, status: setStatusValue };
     } else if (actionType === "reset-code") {
       url = `/api/admin/accounts/${memberId}/reset-code`;
       method = "POST";
+    } else if (actionType === "delete") {
+      if (deleteConfirmation.trim() !== selectedMember.full_name.trim()) {
+        alert("Nama pengesahan mesti sepadan tepat dengan nama ahli.");
+        return;
+      }
+      method = "DELETE";
+      body = {
+        reason: actionReason,
+        confirmationName: deleteConfirmation,
+      };
     }
 
     try {
@@ -228,6 +270,7 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
         setIsEditing(false);
         setActionType(null);
         setActionReason("");
+        setDeleteConfirmation("");
         fetchMembers(); // refresh
       }
     } catch (err: any) {
@@ -506,8 +549,8 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
 
           {/* Member Detail Drawer / Modal Overlay */}
           {selectedMember && (
-            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-              <div className="bg-brand-surface rounded-2xl w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto space-y-4 shadow-xl">
+            <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+              <div className="max-h-[94vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-t-2xl bg-brand-surface p-4 shadow-xl sm:rounded-2xl sm:p-5">
                 <div className="flex justify-between items-center border-b border-gray-100 pb-2">
                   <h3 className="font-bold text-brand-primary text-sm sm:text-base">
                     Butiran Rekod Kariah
@@ -521,36 +564,172 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
                 </div>
 
                 {actionType ? (
-                  // Audit Action Reason prompt
                   <form onSubmit={handleActionSubmit} className="space-y-4">
-                    <div className="bg-amber-50 border border-amber-200 text-brand-muted text-xs p-3 rounded-lg flex items-start gap-2">
-                      <AlertCircle className="w-5 h-5 text-brand-accent flex-shrink-0 mt-0.5" />
-                      <div>
-                        <h4 className="font-bold text-brand-text">
-                          Sebab Tindakan Diperlukan
-                        </h4>
-                        <p className="text-[10px] leading-relaxed">
-                          Anda sedang memproses tindakan:{" "}
-                          <strong>{actionType.toUpperCase()}</strong>. Sila
-                          berikan sebab pengauditan bertulis untuk log
-                          keselamatan.
-                        </p>
-                      </div>
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActionType(null);
+                          setActionReason("");
+                          setSetStatusValue(null);
+                          setResetCodeResult(null);
+                        }}
+                        className="text-xs font-semibold text-brand-primary hover:underline"
+                      >
+                        ← Kembali ke butiran ahli
+                      </button>
+                      <h4 className="text-base font-bold text-brand-text">
+                        {actionLabel(actionType)}
+                      </h4>
+                      <p className="text-xs text-brand-muted">
+                        Semua perubahan direkodkan dalam log audit pentadbir.
+                      </p>
                     </div>
 
                     {actionType === "set-status" && (
-                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-1">
-                        <p className="text-[10px] uppercase font-bold text-orange-700">
-                          Status Baharu Yang Dipilih
-                        </p>
-                        <p className="text-sm font-bold text-orange-900">
-                          {setStatusValue === "moved"
-                            ? "🚚 Berpindah"
-                            : "🕌 Meninggal Dunia"}
-                        </p>
-                        <p className="text-[10px] text-orange-600">
-                          Profil akan disembunyikan daripada direktori awam.
-                        </p>
+                      <section className="space-y-3">
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-teal-100 bg-teal-50 p-3">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-brand-muted">
+                              Status semasa
+                            </p>
+                            <p className="font-bold text-brand-text">
+                              {statusLabel(selectedMember.membership_status)}
+                            </p>
+                          </div>
+                          <span className="rounded-full border border-teal-200 bg-white px-3 py-1 text-[10px] font-bold text-brand-primary">
+                            Rekod semasa
+                          </span>
+                        </div>
+
+                        <fieldset className="space-y-2">
+                          <legend className="mb-2 text-xs font-bold text-brand-text">
+                            Pilih status baharu
+                          </legend>
+                          {(
+                            [
+                              {
+                                value: "active",
+                                label: "Aktif",
+                                description: "Ahli masih aktif dalam kariah.",
+                                icon: UserCheck,
+                              },
+                              {
+                                value: "inactive",
+                                label: "Tidak Aktif",
+                                description:
+                                  "Keahlian dihentikan sementara dan boleh diaktifkan semula.",
+                                icon: UserX,
+                              },
+                              {
+                                value: "moved",
+                                label: "Berpindah",
+                                description:
+                                  "Ahli tidak lagi menetap dalam kawasan kariah.",
+                                icon: MapPin,
+                              },
+                              {
+                                value: "deceased",
+                                label: "Meninggal Dunia",
+                                description:
+                                  "Rekod sejarah ahli dikekalkan tetapi disembunyikan.",
+                                icon: CircleOff,
+                              },
+                            ] as const
+                          ).map((option) => {
+                            const Icon = option.icon;
+                            const isCurrent =
+                              selectedMember.membership_status === option.value;
+                            const isSelected = setStatusValue === option.value;
+
+                            return (
+                              <label
+                                key={option.value}
+                                className={`flex min-h-[64px] items-start gap-3 rounded-xl border p-3 transition-colors ${
+                                  isCurrent
+                                    ? "cursor-not-allowed border-gray-200 bg-gray-50 opacity-65"
+                                    : isSelected
+                                      ? "cursor-pointer border-brand-primary bg-teal-50 ring-1 ring-brand-primary"
+                                      : "cursor-pointer border-gray-200 bg-white hover:border-teal-300"
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="new-membership-status"
+                                  value={option.value}
+                                  checked={isSelected}
+                                  disabled={isCurrent}
+                                  onChange={() =>
+                                    setSetStatusValue(option.value)
+                                  }
+                                  className="mt-1 h-4 w-4 accent-teal-700"
+                                />
+                                <Icon className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-primary" />
+                                <span className="min-w-0 flex-1">
+                                  <span className="flex flex-wrap items-center gap-2 font-bold text-brand-text">
+                                    {option.label}
+                                    {isCurrent && (
+                                      <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[9px] font-bold text-gray-600">
+                                        Status semasa
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="mt-0.5 block text-[10px] leading-relaxed text-brand-muted">
+                                    {option.description}
+                                  </span>
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </fieldset>
+
+                        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[10px] leading-relaxed text-amber-800">
+                          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                          <p>
+                            Status Tidak Aktif, Berpindah dan Meninggal Dunia
+                            akan menyembunyikan profil daripada direktori awam.
+                            Mengaktifkan semula ahli tidak mengubah tetapan
+                            direktori secara automatik.
+                          </p>
+                        </div>
+                      </section>
+                    )}
+
+                    {actionType === "delete" && (
+                      <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 space-y-3">
+                        <div className="flex items-start gap-2">
+                          <Trash2 className="w-5 h-5 text-brand-danger flex-shrink-0" />
+                          <div>
+                            <p className="text-xs font-bold text-brand-danger">
+                              Pemadaman ini tidak boleh dibatalkan
+                            </p>
+                            <p className="text-[10px] text-red-700 mt-1 leading-relaxed">
+                              Hanya rekod import lama yang belum dituntut boleh
+                              dipadam. Log audit tindakan ini akan dikekalkan.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label
+                            htmlFor="delete-confirmation-name"
+                            className="block text-[10px] font-bold text-red-800"
+                          >
+                            Taip nama penuh untuk mengesahkan:
+                            <span className="block mt-1 font-mono select-all">
+                              {selectedMember.full_name}
+                            </span>
+                          </label>
+                          <input
+                            id="delete-confirmation-name"
+                            type="text"
+                            value={deleteConfirmation}
+                            onChange={(e) =>
+                              setDeleteConfirmation(e.target.value)
+                            }
+                            autoComplete="off"
+                            className="w-full px-3 py-2 bg-white border border-red-300 rounded-lg text-xs"
+                          />
+                        </div>
                       </div>
                     )}
 
@@ -565,7 +744,11 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
                         id="action-reason"
                         required
                         rows={3}
-                        placeholder="Masukkan sebab tindakan..."
+                        placeholder={
+                          actionType === "set-status"
+                            ? "Contoh: Pembetulan status berdasarkan pengesahan ahli"
+                            : "Masukkan sebab tindakan..."
+                        }
                         value={actionReason}
                         onChange={(e) => setActionReason(e.target.value)}
                         className="w-full px-3 py-2 bg-brand-background border border-gray-300 rounded-lg text-xs"
@@ -592,6 +775,8 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
                         type="button"
                         onClick={() => {
                           setActionType(null);
+                          setActionReason("");
+                          setSetStatusValue(null);
                           setResetCodeResult(null);
                         }}
                         className="w-1/2 py-2.5 bg-gray-100 border border-gray-250 text-xs font-bold rounded-lg min-h-[44px]"
@@ -600,9 +785,26 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
                       </button>
                       <button
                         type="submit"
-                        className="w-1/2 py-2.5 bg-brand-primary text-white text-xs font-bold rounded-lg shadow min-h-[44px]"
+                        disabled={
+                          (actionType === "delete" &&
+                            deleteConfirmation.trim() !==
+                              selectedMember.full_name.trim()) ||
+                          (actionType === "set-status" &&
+                            (!setStatusValue ||
+                              setStatusValue ===
+                                selectedMember.membership_status))
+                        }
+                        className={`w-1/2 py-2.5 text-white text-xs font-bold rounded-lg shadow min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed ${
+                          actionType === "delete"
+                            ? "bg-brand-danger hover:bg-red-800"
+                            : "bg-brand-primary"
+                        }`}
                       >
-                        Sahkan & Hantar
+                        {actionType === "delete"
+                          ? "Padam Kekal"
+                          : actionType === "set-status"
+                            ? "Simpan Status Baharu"
+                            : "Sahkan & Hantar"}
                       </button>
                     </div>
                   </form>
@@ -734,195 +936,188 @@ export default function AdminMembers({ onLogout }: { onLogout: () => void }) {
                     </div>
                   </form>
                 ) : (
-                  // Static detailed view with actions
                   <div className="space-y-4 text-xs">
-                    <div className="grid grid-cols-2 gap-3.5 bg-gray-50 p-3.5 rounded-xl border border-gray-150">
-                      <div>
-                        <span className="text-[9px] uppercase font-bold text-brand-muted">
-                          Legacy ID
-                        </span>
-                        <p className="font-semibold">
-                          {selectedMember.legacy_id || "Tiada"}
-                        </p>
+                    <section className="rounded-xl border border-teal-100 bg-gradient-to-br from-teal-50 to-white p-4">
+                      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-brand-muted">
+                            Ahli kariah
+                          </p>
+                          <h4 className="mt-1 text-lg font-bold text-brand-text">
+                            {selectedMember.full_name}
+                          </h4>
+                          <p className="mt-1 text-[10px] text-brand-muted">
+                            {selectedMember.legacy_id || "Tiada ID lama"} ·{" "}
+                            {registrationSourceLabel(
+                              selectedMember.registration_source,
+                            )}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="rounded-full border border-teal-200 bg-white px-3 py-1 font-bold text-brand-primary">
+                            {statusLabel(selectedMember.membership_status)}
+                          </span>
+                          <span className="rounded-full border border-gray-200 bg-white px-3 py-1 font-semibold text-brand-muted">
+                            {accountStateLabel(selectedMember.account_state)}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-[9px] uppercase font-bold text-brand-muted">
-                          Sumber Rekod
-                        </span>
-                        <p className="font-semibold">
-                          {selectedMember.registration_source}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] uppercase font-bold text-brand-muted">
-                          Status Keahlian
-                        </span>
-                        <p className="font-semibold text-brand-primary">
-                          {selectedMember.membership_status.toUpperCase()}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] uppercase font-bold text-brand-muted">
-                          Sesi Akaun
-                        </span>
-                        <p className="font-semibold">
-                          {selectedMember.account_state.toUpperCase()}
-                        </p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="text-[9px] uppercase font-bold text-brand-muted">
-                          Nama Penuh
-                        </span>
-                        <p className="font-bold text-brand-text text-sm">
-                          {selectedMember.full_name}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] uppercase font-bold text-brand-muted">
-                          No. IC
-                        </span>
-                        <p className="font-mono font-medium">
-                          {formatIcForDisplay(selectedMember.ic_normalized)}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] uppercase font-bold text-brand-muted">
-                          No. Telefon
-                        </span>
-                        <p className="font-medium">
-                          {formatPhoneForDisplay(
-                            selectedMember.phone_normalized,
-                          )}
-                        </p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="text-[9px] uppercase font-bold text-brand-muted">
-                          Alamat
-                        </span>
-                        <p className="font-medium leading-relaxed">
-                          {selectedMember.address} (
-                          {selectedMember.general_area || "Desa Al-Ikhwan"})
-                        </p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="text-[9px] uppercase font-bold text-brand-muted">
-                          Catatan Pentadbir
-                        </span>
-                        <p className="font-medium bg-white p-2 rounded border border-gray-200 min-h-[30px] italic">
-                          {selectedMember.admin_notes || "Tiada catatan."}
-                        </p>
-                      </div>
-                    </div>
+                    </section>
 
-                    {/* Action buttons */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => setIsEditing(true)}
-                        className="py-2 px-3 border border-gray-300 hover:border-brand-primary text-brand-text font-bold rounded-lg flex items-center justify-center gap-1.5 min-h-[44px]"
-                      >
-                        <Edit3 className="w-4 h-4 text-brand-muted" />
-                        <span>Kemas Kini Profil</span>
-                      </button>
+                    <section className="rounded-xl border border-gray-200 p-4">
+                      <h4 className="mb-3 font-bold text-brand-text">
+                        Maklumat Ahli
+                      </h4>
+                      <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                          <dt className="text-[9px] font-bold uppercase text-brand-muted">
+                            No. IC
+                          </dt>
+                          <dd className="mt-1 font-mono font-medium text-brand-text">
+                            {formatIcForDisplay(selectedMember.ic_normalized)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-[9px] font-bold uppercase text-brand-muted">
+                            No. Telefon
+                          </dt>
+                          <dd className="mt-1 font-medium text-brand-text">
+                            {formatPhoneForDisplay(
+                              selectedMember.phone_normalized,
+                            )}
+                          </dd>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <dt className="text-[9px] font-bold uppercase text-brand-muted">
+                            Alamat
+                          </dt>
+                          <dd className="mt-1 font-medium leading-relaxed text-brand-text">
+                            {selectedMember.address || "Tiada alamat"}
+                            {selectedMember.general_area &&
+                              ` (${selectedMember.general_area})`}
+                          </dd>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <dt className="text-[9px] font-bold uppercase text-brand-muted">
+                            Catatan Pentadbir
+                          </dt>
+                          <dd className="mt-1 rounded-lg bg-gray-50 p-3 leading-relaxed text-brand-text">
+                            {selectedMember.admin_notes || "Tiada catatan."}
+                          </dd>
+                        </div>
+                      </dl>
+                    </section>
 
-                      {selectedAccount && (
+                    <section className="rounded-xl border border-gray-200 p-4">
+                      <div className="mb-3">
+                        <h4 className="font-bold text-brand-text">
+                          Tindakan Pentadbir
+                        </h4>
+                        <p className="mt-0.5 text-[10px] text-brand-muted">
+                          Pilih tindakan yang ingin dilakukan pada rekod ini.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <button
-                          onClick={() => setActionType("reset-code")}
-                          className="py-2 px-3 border border-gray-300 hover:border-brand-accent text-brand-text font-bold rounded-lg flex items-center justify-center gap-1.5 min-h-[44px]"
+                          onClick={() => setIsEditing(true)}
+                          className="flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 font-bold text-brand-text hover:border-brand-primary"
                         >
-                          <LockKeyhole className="w-4 h-4 text-brand-muted" />
-                          <span>Kod Reset Laluan</span>
+                          <Edit3 className="h-4 w-4 text-brand-muted" />
+                          Kemas Kini Profil
                         </button>
-                      )}
 
-                      {selectedMember.membership_status === "pending" && (
-                        <>
+                        {selectedAccount && (
                           <button
-                            onClick={() => setActionType("approve")}
-                            className="py-2 px-3 bg-brand-primary hover:bg-teal-800 text-white font-bold rounded-lg flex items-center justify-center gap-1.5 min-h-[44px]"
+                            onClick={() => setActionType("reset-code")}
+                            className="flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 font-bold text-brand-text hover:border-brand-accent"
                           >
-                            <UserCheck className="w-4 h-4" />
-                            <span>Lulus Ahli</span>
+                            <LockKeyhole className="h-4 w-4 text-brand-muted" />
+                            Jana Kod Reset
                           </button>
-                          <button
-                            onClick={() => setActionType("reject")}
-                            className="py-2 px-3 bg-brand-danger hover:bg-red-800 text-white font-bold rounded-lg flex items-center justify-center gap-1.5 min-h-[44px]"
-                          >
-                            <X className="w-4 h-4" />
-                            <span>Tolak Ahli</span>
-                          </button>
-                        </>
-                      )}
+                        )}
 
-                      {selectedMember.membership_status === "active" && (
-                        <>
-                          <button
-                            onClick={() => setActionType("deactivate")}
-                            className="py-2 px-3 bg-brand-danger hover:bg-red-800 text-white font-bold rounded-lg flex items-center justify-center gap-1.5 min-h-[44px]"
-                          >
-                            <UserX className="w-4 h-4" />
-                            <span>Nyahaktifkan</span>
-                          </button>
-                          {/* Inline radio button for Berpindah / Meninggal Dunia */}
-                          <button
-                            onClick={() => setActionType("set-status")}
-                            className="py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg flex items-center justify-center gap-1.5 min-h-[44px]"
-                          >
-                            <UserX className="w-4 h-4" />
-                            <span>Tukar Status</span>
-                          </button>
-                          <div className="col-span-2 bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
-                            <p className="text-[10px] uppercase font-bold text-amber-700">
-                              Status Ahli
-                            </p>
-                            <div className="flex gap-6">
-                              <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name={`status-${selectedMember.id}`}
-                                  value="moved"
-                                  checked={setStatusValue === "moved"}
-                                  onChange={() => setSetStatusValue("moved")}
-                                  className="accent-amber-600 w-4 h-4"
-                                />
-                                <span className="text-xs font-semibold text-amber-800">
-                                  🚚 Berpindah
-                                </span>
-                              </label>
-                              <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name={`status-${selectedMember.id}`}
-                                  value="deceased"
-                                  checked={setStatusValue === "deceased"}
-                                  onChange={() => setSetStatusValue("deceased")}
-                                  className="accent-gray-600 w-4 h-4"
-                                />
-                                <span className="text-xs font-semibold text-gray-700">
-                                  🕌 Meninggal Dunia
-                                </span>
-                              </label>
+                        {selectedMember.membership_status === "pending" ? (
+                          <>
+                            <button
+                              onClick={() => setActionType("approve")}
+                              className="flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-brand-primary px-3 py-2 font-bold text-white hover:bg-teal-800"
+                            >
+                              <UserCheck className="h-4 w-4" />
+                              Luluskan Keahlian
+                            </button>
+                            <button
+                              onClick={() => setActionType("reject")}
+                              className="flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-red-300 px-3 py-2 font-bold text-brand-danger hover:bg-red-50"
+                            >
+                              <X className="h-4 w-4" />
+                              Tolak Keahlian
+                            </button>
+                          </>
+                        ) : (
+                          <div className="rounded-xl border border-teal-100 bg-teal-50 p-3 sm:col-span-2">
+                            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                              <div>
+                                <p className="text-[9px] font-bold uppercase tracking-wide text-brand-muted">
+                                  Status keahlian semasa
+                                </p>
+                                <p className="mt-0.5 font-bold text-brand-text">
+                                  {statusLabel(
+                                    selectedMember.membership_status,
+                                  )}
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-brand-muted">
+                                  Tukar status hanya selepas mendapat pengesahan
+                                  yang sah.
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setSetStatusValue(null);
+                                  setActionReason("");
+                                  setActionType("set-status");
+                                }}
+                                className="min-h-[44px] flex-shrink-0 rounded-lg bg-brand-primary px-4 py-2 font-bold text-white hover:bg-teal-800"
+                              >
+                                Ubah Status
+                              </button>
                             </div>
-                            <p className="text-[10px] text-amber-600">
-                              Profil akan disembunyikan daripada direktori awam
-                              secara automatik.
-                            </p>
                           </div>
-                        </>
-                      )}
+                        )}
+                      </div>
+                    </section>
 
-                      {(selectedMember.membership_status === "inactive" ||
-                        selectedMember.membership_status === "rejected" ||
-                        selectedMember.membership_status === "moved" ||
-                        selectedMember.membership_status === "deceased") && (
-                        <button
-                          onClick={() => setActionType("activate")}
-                          className="py-2 px-3 bg-brand-primary hover:bg-teal-800 text-white font-bold rounded-lg flex items-center justify-center gap-1.5 min-h-[44px] col-span-2"
-                        >
-                          <UserCheck className="w-4 h-4" />
-                          <span>Aktifkan Semula Keahlian</span>
-                        </button>
+                    {selectedMember.registration_source === "legacy_import" &&
+                      selectedMember.account_state === "unclaimed" &&
+                      !selectedAccount && (
+                        <section className="rounded-xl border border-red-200 bg-red-50 p-4">
+                          <div className="flex items-start gap-3">
+                            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-danger" />
+                            <div>
+                              <h4 className="font-bold text-brand-danger">
+                                Zon Bahaya
+                              </h4>
+                              <p className="mt-1 text-[10px] leading-relaxed text-red-700">
+                                Hanya untuk rekod import tersalah atau pendua
+                                yang belum dituntut. Pemadaman tidak boleh
+                                dibatalkan.
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteConfirmation("");
+                              setActionReason("");
+                              setActionType("delete");
+                            }}
+                            className="mt-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-3 py-2 font-bold text-brand-danger hover:bg-red-100"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Padam Rekod Kekal
+                          </button>
+                        </section>
                       )}
-                    </div>
                   </div>
                 )}
               </div>

@@ -1,4 +1,6 @@
 import { MiddlewareHandler } from "hono";
+import { getCookie } from "hono/cookie";
+import { hashSessionToken } from "./auth.ts";
 
 // 1. Same-Origin & Content-Type CSRF Protection
 export const csrfProtection: MiddlewareHandler = async (c, next) => {

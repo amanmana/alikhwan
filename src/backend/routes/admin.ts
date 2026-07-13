@@ -357,7 +357,8 @@ app.get("/members/:id", async (c) => {
     const member = await c.env.DB.prepare(
       `SELECT id, legacy_id, full_name, ic_normalized, ic_last4, birth_date, phone_normalized,
               address, general_area, membership_status, account_state, directory_visible,
-              directory_consent_at, admin_notes, created_at, updated_at, approved_at, approved_by, deactivated_at
+              directory_consent_at, registration_source, admin_notes, created_at, updated_at,
+              approved_at, approved_by, deactivated_at
        FROM members WHERE id = ?`,
     )
       .bind(id)
@@ -485,6 +486,112 @@ app.patch("/members/:id", async (c) => {
       { error: "Ralat pelayan semasa mengemaskini maklumat ahli." },
       500,
     );
+  }
+});
+
+// 7b. DELETE /api/admin/members/:id (Permanently delete an unclaimed legacy record)
+app.delete("/members/:id", async (c) => {
+  const id = c.req.param("id");
+  const adminSessionId = c.get("adminSessionId");
+  const body = await c.req.json();
+  const { reason, confirmationName } = body;
+
+  if (!reason || reason.trim().length < 5) {
+    return c.json(
+      { error: "Sebab pemadaman sekurang-kurangnya 5 aksara diperlukan." },
+      400,
+    );
+  }
+
+  if (!confirmationName || typeof confirmationName !== "string") {
+    return c.json(
+      { error: "Taip nama penuh ahli untuk mengesahkan pemadaman." },
+      400,
+    );
+  }
+
+  try {
+    const member = await c.env.DB.prepare(
+      `SELECT id, full_name, registration_source, account_state
+       FROM members WHERE id = ?`,
+    )
+      .bind(id)
+      .first<any>();
+
+    if (!member) {
+      return c.json({ error: "Ahli tidak ditemui." }, 404);
+    }
+
+    const normalizeName = (value: string) =>
+      value.toUpperCase().replace(/\s+/g, " ").trim();
+
+    if (normalizeName(confirmationName) !== normalizeName(member.full_name)) {
+      return c.json(
+        { error: "Nama pengesahan tidak sepadan dengan nama rekod ahli." },
+        400,
+      );
+    }
+
+    if (
+      member.registration_source !== "legacy_import" ||
+      member.account_state !== "unclaimed"
+    ) {
+      return c.json(
+        {
+          error:
+            "Hanya rekod import lama yang belum dituntut boleh dipadam kekal. Gunakan nyahaktif untuk rekod lain.",
+        },
+        409,
+      );
+    }
+
+    const account = await c.env.DB.prepare(
+      "SELECT id FROM member_accounts WHERE member_id = ? LIMIT 1",
+    )
+      .bind(id)
+      .first();
+
+    if (account) {
+      return c.json(
+        {
+          error:
+            "Rekod ini mempunyai akaun pengguna dan tidak boleh dipadam kekal.",
+        },
+        409,
+      );
+    }
+
+    const nowStr = new Date().toISOString();
+    const auditStatement = c.env.DB.prepare(
+      `INSERT INTO audit_logs (
+        id, actor_type, actor_id, action, entity_type, entity_id,
+        changed_fields_json, reason, created_at
+      ) VALUES (?, 'admin', ?, 'MEMBER_DELETE_PERMANENT', 'members', ?, ?, ?, ?)`,
+    ).bind(
+      crypto.randomUUID(),
+      adminSessionId,
+      id,
+      JSON.stringify({
+        registrationSource: member.registration_source,
+        accountState: member.account_state,
+      }),
+      reason.trim(),
+      nowStr,
+    );
+
+    const deleteStatement = c.env.DB.prepare(
+      `DELETE FROM members
+       WHERE id = ? AND registration_source = 'legacy_import' AND account_state = 'unclaimed'`,
+    ).bind(id);
+
+    await c.env.DB.batch([auditStatement, deleteStatement]);
+
+    return c.json({
+      success: true,
+      message: "Rekod ahli lama berjaya dipadam secara kekal.",
+    });
+  } catch (err) {
+    return c.json({ error: "Ralat pelayan semasa memadam rekod ahli." }, 500);
   }
 });
 
@@ -663,17 +770,20 @@ app.post("/members/:id/deactivate", async (c) => {
   }
 });
 
-// 10b. POST /api/admin/members/:id/set-status (Mark as Moved or Deceased)
+// 10b. POST /api/admin/members/:id/set-status (Change membership lifecycle status)
 app.post("/members/:id/set-status", async (c) => {
   const id = c.req.param("id");
   const adminSessionId = c.get("adminSessionId");
   const body = await c.req.json();
   const { status, reason } = body;
 
-  const allowedStatuses = ["moved", "deceased"];
+  const allowedStatuses = ["active", "inactive", "moved", "deceased"];
   if (!status || !allowedStatuses.includes(status)) {
     return c.json(
-      { error: "Status tidak sah. Gunakan 'moved' atau 'deceased'." },
+      {
+        error:
+          "Status tidak sah. Gunakan 'active', 'inactive', 'moved' atau 'deceased'.",
+      },
       400,
     );
   }
@@ -695,20 +805,39 @@ app.post("/members/:id/set-status", async (c) => {
       return c.json({ error: "Ahli tidak ditemui." }, 404);
     }
 
-    await c.env.DB.prepare(
-      "UPDATE members SET membership_status = ?, directory_visible = 0, updated_at = ? WHERE id = ?",
-    )
-      .bind(status, nowStr, id)
-      .run();
+    if (member.membership_status === status) {
+      return c.json(
+        { error: "Status baharu mesti berbeza daripada status semasa." },
+        400,
+      );
+    }
 
-    const actionLabel = status === "moved" ? "MEMBER_MOVED" : "MEMBER_DECEASED";
-    const statusLabel = status === "moved" ? "Berpindah" : "Meninggal Dunia";
+    if (status === "active") {
+      await c.env.DB.prepare(
+        "UPDATE members SET membership_status = ?, deactivated_at = NULL, updated_at = ? WHERE id = ?",
+      )
+        .bind(status, nowStr, id)
+        .run();
+    } else {
+      await c.env.DB.prepare(
+        "UPDATE members SET membership_status = ?, directory_visible = 0, deactivated_at = ?, updated_at = ? WHERE id = ?",
+      )
+        .bind(status, nowStr, nowStr, id)
+        .run();
+    }
+
+    const statusConfig = {
+      active: { action: "MEMBER_ACTIVATED", label: "Aktif" },
+      inactive: { action: "MEMBER_DEACTIVATED", label: "Tidak Aktif" },
+      moved: { action: "MEMBER_MOVED", label: "Berpindah" },
+      deceased: { action: "MEMBER_DECEASED", label: "Meninggal Dunia" },
+    }[status as "active" | "inactive" | "moved" | "deceased"];
 
     await createAuditLog(
       c.env.DB,
       "admin",
       adminSessionId,
-      actionLabel,
+      statusConfig.action,
       "members",
       id,
       JSON.stringify({
@@ -720,7 +849,10 @@ app.post("/members/:id/set-status", async (c) => {
 
     return c.json({
       success: true,
-      message: `Status ahli berjaya dikemaskini kepada: ${statusLabel}. Profil disembunyikan daripada direktori awam.`,
+      message:
+        status === "active"
+          ? `Status ahli berjaya dikemaskini kepada: ${statusConfig.label}. Tetapan direktori sedia ada dikekalkan.`
+          : `Status ahli berjaya dikemaskini kepada: ${statusConfig.label}. Profil disembunyikan daripada direktori awam.`,
     });
   } catch (err) {
     return c.json(

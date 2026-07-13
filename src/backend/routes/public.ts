@@ -235,6 +235,7 @@ app.post("/register", rateLimiter("register", 5, 60), async (c) => {
     username,
     password,
     directoryConsent,
+    confirmedNotLegacy,
     turnstileToken,
   } = parsed.data;
 
@@ -273,6 +274,28 @@ app.post("/register", rateLimiter("register", 5, 60), async (c) => {
       );
     }
 
+    const normalizedName = fullName.toUpperCase().replace(/\s+/g, " ").trim();
+    const possibleLegacyMember = await c.env.DB.prepare(
+      `SELECT id FROM members
+       WHERE full_name_normalized = ?
+         AND registration_source = 'legacy_import'
+         AND account_state = 'unclaimed'
+       LIMIT 1`,
+    )
+      .bind(normalizedName)
+      .first();
+
+    if (possibleLegacyMember && !confirmedNotLegacy) {
+      return c.json(
+        {
+          code: "POSSIBLE_LEGACY_MATCH",
+          error:
+            "Nama yang sama ditemui dalam rekod lama. Sila semak dan tuntut rekod tersebut terlebih dahulu.",
+        },
+        409,
+      );
+    }
+
     const existingUsername = await c.env.DB.prepare(
       "SELECT id FROM member_accounts WHERE username_normalized = ?",
     )
@@ -291,7 +314,6 @@ app.post("/register", rateLimiter("register", 5, 60), async (c) => {
     const accountId = crypto.randomUUID();
     const nowStr = new Date().toISOString();
     const icLast4 = cleanedIc.substring(8);
-    const normalizedName = fullName.toUpperCase().trim();
     const hashedPassword = await hashPassword(password);
 
     const insertMember = c.env.DB.prepare(
