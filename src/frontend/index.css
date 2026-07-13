@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-brand-background text-brand-text font-sans antialiased selection:bg-brand-secondary selection:text-white;
+  }
+
+  /* Custom keyboard focus states */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-brand-accent ring-offset-2 ring-offset-brand-background;
+  }
+
+  /* Accessible Skip Link */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-brand-primary focus:text-white focus:rounded-md;
+  }
+}
+
+/* Accessibility: respect user preferences for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Islamic Geometric Motif border decoration class */
+.islamic-pattern-border {
+  background-image: radial-gradient(
+    circle at 100% 150%,
+    #0f766e 24%,
+    #14b8a6 24%,
+    #14b8a6 28%,
+    #0f766e 28%,
+    #0f766e 36%,
+    #f59e0b 36%,
+    #f59e0b 40%,
+    transparent 40%,
+    transparent
+  );
+  background-size: 20px 20px;
+}
+
+/* Page transitions */
+.fade-enter {
+  opacity: 0;
+}
+.fade-enter-active {
+  opacity: 1;
+  transition: opacity 200ms ease-in-out;
+}

@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Local Dev wrangler directories & variables
+.wrangler/
+.dev.vars
+.dev.vars.local
+
+# Build files
+dist/
+dist-ssr/
+build/
+*.local
+
+# Logs and system artifacts
+*.log
+.eslintcache
+
+# Project Import Data (Strict PII Security Rules)
+users.sql
+output/
+tests/e2e/test-results/
+tests/e2e/playwright-report/

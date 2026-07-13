@@ -1,0 +1,14 @@
+# Cloudflare Worker Secrets (Required locally in .dev.vars for development)
+
+# Magic keyword to log in as admin from a browser/device
+ADMIN_MAGIC_KEYWORD=
+
+# Secret key used for signing session IDs or cryptographically securing sessions
+SESSION_SECRET=
+
+# Cloudflare Turnstile secret key (for testing, use 1x00000000000000000000000000000000AA which always passes)
+TURNSTILE_SECRET_KEY=
+
+# Reserved placeholders for application-level PII encryption (if added in the future)
+PII_ENCRYPTION_KEY=
+PII_LOOKUP_KEY=
