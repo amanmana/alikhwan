@@ -13,11 +13,11 @@
     {
       "binding": "DB",
       "database_name": "alikhwan-db",
-      "database_id": "placeholder-id-to-be-replaced-in-production",
+      "database_id": "2ad7aa74-81b8-41ac-8d10-2bc03481dc04",
       "migrations_dir": "./migrations",
     },
   ],
   "vars": {
-    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAD1XiTt4lvHFgu2C",
   },
 }

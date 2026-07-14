@@ -29,7 +29,7 @@ export default function Turnstile({ onVerify }: TurnstileProps) {
       ) {
         try {
           const id = (window as any).turnstile.render(containerRef.current, {
-            sitekey: "1x00000000000000000000AA", // Cloudflare standard test sitekey
+            sitekey: "0x4AAAAAAD1XiTt4lvHFgu2C", // Production Cloudflare sitekey
             callback: (token: string) => {
               clearTimeout(fallbackRef.timer);
               stableOnVerify(token);

@@ -26,7 +26,7 @@ export default function Header({
               e-Kariah Al-Ikhwan
             </h1>
             <p className="text-[10px] sm:text-xs text-brand-muted">
-              Surau Al-Ikhwan, Seksyen 5, BBB
+              Surau Al-Ikhwan, Jalan PUJ 2/30, Taman Puncak Jalil, 43300 Seri Kembangan, Selangor.
             </p>
           </div>
         </Link>
