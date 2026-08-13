@@ -307,6 +307,23 @@ export default function IfrOrganizerDashboard() {
                 <p className="text-sm text-slate-500 font-medium">No. Tel Waris (Kecemasan)</p>
                 <p className="text-slate-900 font-medium text-red-600">{selectedParticipantDetail.emergency_contact_phone || "-"}</p>
               </div>
+              <div>
+                <p className="text-sm text-slate-500 font-medium">Tarikh & Waktu Daftar</p>
+                <p className="text-slate-900">
+                  {new Date(
+                    selectedParticipantDetail.created_at.includes('T') 
+                      ? selectedParticipantDetail.created_at 
+                      : selectedParticipantDetail.created_at.replace(' ', 'T') + 'Z'
+                  ).toLocaleDateString("ms-MY", {
+                    timeZone: "Asia/Kuala_Lumpur",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit"
+                  })}
+                </p>
+              </div>
             </div>
           </div>
         </div>
