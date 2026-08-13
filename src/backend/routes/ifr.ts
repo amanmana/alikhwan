@@ -65,7 +65,7 @@ router.get("/participant/:id", async (c) => {
   try {
     const { id } = c.req.param();
     const result = await c.env.DB.prepare(
-      "SELECT name, category, shirt_size, created_at FROM ifr_participants WHERE id = ?"
+      "SELECT name, category, shirt_size, kit_claimed, created_at FROM ifr_participants WHERE id = ?"
     )
       .bind(id)
       .first();
@@ -116,12 +116,37 @@ router.get("/admin/participants", async (c) => {
 
   try {
     const participants = await c.env.DB.prepare(
-      "SELECT id, name, ic_number, phone, category, address, shirt_size, emergency_contact_phone, created_at, receipt_data FROM ifr_participants ORDER BY created_at DESC"
+      "SELECT id, name, ic_number, phone, category, address, shirt_size, emergency_contact_phone, created_at, receipt_data, kit_claimed FROM ifr_participants ORDER BY created_at DESC"
     ).all();
 
     return c.json({ participants: participants.results });
   } catch (error) {
     console.error("IFR Get Admin Participants error:", error);
+    return c.json({ error: "Ralat dalaman pelayan." }, 500);
+  }
+});
+
+router.post("/admin/participants/:id/claim", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (authHeader !== "Bearer IFR2026") {
+    return c.json({ error: "Akses ditolak. Passcode tidak sah." }, 401);
+  }
+
+  try {
+    const { id } = c.req.param();
+    const { claimed } = await c.req.json();
+    
+    const { success } = await c.env.DB.prepare(
+      "UPDATE ifr_participants SET kit_claimed = ? WHERE id = ?"
+    ).bind(claimed ? 1 : 0, id).run();
+
+    if (!success) {
+      return c.json({ error: "Gagal mengemas kini status." }, 500);
+    }
+
+    return c.json({ success: true, message: "Status berjaya dikemas kini." });
+  } catch (error) {
+    console.error("IFR Update Kit Claim error:", error);
     return c.json({ error: "Ralat dalaman pelayan." }, 500);
   }
 });

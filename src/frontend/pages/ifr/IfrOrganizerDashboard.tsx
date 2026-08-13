@@ -88,6 +88,30 @@ export default function IfrOrganizerDashboard() {
     }
   };
 
+  const handleToggleKitClaim = async (id: string, currentStatus: number) => {
+    try {
+      const newStatus = currentStatus ? false : true; // Toggle boolean
+      const res = await fetch(`/api/ifr/admin/participants/${id}/claim`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${passcode}`,
+        },
+        body: JSON.stringify({ claimed: newStatus }),
+      });
+      if (res.ok) {
+        // Update local state
+        setParticipants(prev => prev.map(p => 
+          p.id === id ? { ...p, kit_claimed: newStatus ? 1 : 0 } : p
+        ));
+      } else {
+        alert("Gagal mengemas kini status kit.");
+      }
+    } catch (err) {
+      alert("Ralat semasa menyambung ke pelayan.");
+    }
+  };
+
   const filteredParticipants = participants.filter(
     (p) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -98,7 +122,7 @@ export default function IfrOrganizerDashboard() {
   const handleDownloadCSV = () => {
     if (filteredParticipants.length === 0) return;
 
-    const headers = ["Nama", "No IC", "No Telefon", "Kategori", "Saiz Baju", "Alamat Semasa", "No Tel Waris (Kecemasan)", "Tarikh Daftar"];
+    const headers = ["Nama", "No IC", "No Telefon", "Kategori", "Saiz Baju", "Alamat Semasa", "No Tel Waris (Kecemasan)", "Tarikh Daftar", "Status Kit"];
     const csvRows = [headers.join(",")];
 
     for (const p of filteredParticipants) {
@@ -110,7 +134,8 @@ export default function IfrOrganizerDashboard() {
         `"${p.shirt_size}"`,
         `"${(p.address || "").replace(/"/g, '""')}"`,
         `"${p.emergency_contact_phone || ""}"`,
-        `"${new Date(p.created_at.includes('T') ? p.created_at : p.created_at.replace(' ', 'T') + 'Z').toLocaleString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' })}"`
+        `"${new Date(p.created_at.includes('T') ? p.created_at : p.created_at.replace(' ', 'T') + 'Z').toLocaleString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' })}"`,
+        `"${p.kit_claimed ? 'Telah Dituntut' : 'Belum'}"`
       ];
       csvRows.push(row.join(","));
     }
@@ -257,6 +282,7 @@ export default function IfrOrganizerDashboard() {
                   <th className="p-4 font-semibold">No Telefon</th>
                   <th className="p-4 font-semibold">Kategori</th>
                   <th className="p-4 font-semibold">Saiz Baju</th>
+                  <th className="p-4 font-semibold text-center">Tuntutan Kit</th>
                   <th className="p-4 font-semibold text-center">Resit</th>
                   <th className="p-4 font-semibold text-center">Butiran</th>
                 </tr>
@@ -275,6 +301,18 @@ export default function IfrOrganizerDashboard() {
                       </td>
                       <td className="p-4">
                         <span className="font-bold text-slate-700">{p.shirt_size}</span>
+                      </td>
+                      <td className="p-4 text-center">
+                        <button
+                          onClick={() => handleToggleKitClaim(p.id, p.kit_claimed)}
+                          className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                            p.kit_claimed 
+                              ? 'bg-green-100 text-green-700 hover:bg-green-200 border border-green-300' 
+                              : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-300'
+                          }`}
+                        >
+                          {p.kit_claimed ? 'Dituntut' : 'Belum'}
+                        </button>
                       </td>
                       <td className="p-4 text-center">
                         {p.receipt_data ? (

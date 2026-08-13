@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { User, Tag, Shirt, Clock, AlertCircle } from "lucide-react";
+import { User, Tag, Shirt, Clock, AlertCircle, CheckCircle, PackageCheck } from "lucide-react";
 
 export default function IfrParticipantInfo() {
   const { id } = useParams();
@@ -8,6 +8,35 @@ export default function IfrParticipantInfo() {
   const [participant, setParticipant] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingKit, setUpdatingKit] = useState(false);
+
+  const handleUpdateKitStatus = async (currentStatus: number) => {
+    const passcode = prompt("Sila masukkan Passcode Penganjur untuk kemas kini status:");
+    if (!passcode) return;
+
+    setUpdatingKit(true);
+    try {
+      const newStatus = currentStatus ? false : true;
+      const res = await fetch(`/api/ifr/admin/participants/${id}/claim`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${passcode}`,
+        },
+        body: JSON.stringify({ claimed: newStatus }),
+      });
+      if (res.ok) {
+        setParticipant({ ...participant, kit_claimed: newStatus ? 1 : 0 });
+        alert("Status Race Kit berjaya dikemas kini!");
+      } else {
+        alert("Passcode tidak sah atau ralat berlaku.");
+      }
+    } catch (err) {
+      alert("Ralat semasa menyambung ke pelayan.");
+    } finally {
+      setUpdatingKit(false);
+    }
+  };
 
   useEffect(() => {
     if (id) {
@@ -117,6 +146,28 @@ export default function IfrParticipantInfo() {
                 <p className="text-sm font-semibold text-slate-400 tracking-wider uppercase mb-1">Saiz Baju (Race Kit)</p>
                 <p className="font-black text-3xl text-[#8cc63f] drop-shadow-sm">{participant.shirt_size}</p>
               </div>
+            </div>
+
+            {/* Kit Claim Status */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-900/50 p-4 rounded-xl border border-slate-700 mt-4">
+              <div className="flex items-center mb-3 sm:mb-0">
+                <div className={`p-2 rounded-full mr-3 shrink-0 ${participant.kit_claimed ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'}`}>
+                  {participant.kit_claimed ? <PackageCheck className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase">Status Race Kit</p>
+                  <p className={`font-bold ${participant.kit_claimed ? 'text-green-400' : 'text-slate-300'}`}>
+                    {participant.kit_claimed ? 'Telah Dituntut' : 'Belum Dituntut'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleUpdateKitStatus(participant.kit_claimed)}
+                disabled={updatingKit}
+                className="text-xs font-medium px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors whitespace-nowrap"
+              >
+                {updatingKit ? 'Memproses...' : 'Kemas Kini Status'}
+              </button>
             </div>
             
             {/* Date */}
