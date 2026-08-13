@@ -126,4 +126,47 @@ router.get("/admin/participants", async (c) => {
   }
 });
 
+router.get("/status", async (c) => {
+  try {
+    const result = await c.env.DB.prepare(
+      "SELECT value FROM system_settings WHERE key = 'ifr_status'"
+    ).first<any>();
+    
+    // Default to 'open' if not set
+    const status = result ? result.value : "open";
+    return c.json({ status });
+  } catch (error) {
+    console.error("IFR Get Status error:", error);
+    return c.json({ error: "Ralat dalaman pelayan." }, 500);
+  }
+});
+
+router.post("/admin/status", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (authHeader !== "Bearer IFR2026") {
+    return c.json({ error: "Akses ditolak. Passcode tidak sah." }, 401);
+  }
+
+  try {
+    const { status } = await c.req.json();
+    if (!["open", "closed_registration", "event_ended"].includes(status)) {
+      return c.json({ error: "Status tidak sah." }, 400);
+    }
+
+    const nowStr = new Date().toISOString();
+    await c.env.DB.prepare(
+      `INSERT INTO system_settings (key, value, updated_at) 
+       VALUES ('ifr_status', ?, ?) 
+       ON CONFLICT(key) DO UPDATE SET 
+         value = excluded.value, 
+         updated_at = excluded.updated_at`
+    ).bind(status, nowStr).run();
+
+    return c.json({ success: true, message: "Status berjaya dikemas kini." });
+  } catch (error) {
+    console.error("IFR Set Admin Status error:", error);
+    return c.json({ error: "Ralat dalaman pelayan." }, 500);
+  }
+});
+
 export default router;

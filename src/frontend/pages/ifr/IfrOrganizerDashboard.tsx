@@ -11,6 +11,8 @@ export default function IfrOrganizerDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
   const [selectedParticipantDetail, setSelectedParticipantDetail] = useState<any>(null);
+  const [eventStatus, setEventStatus] = useState("open");
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const fetchData = async (code: string) => {
     setLoading(true);
@@ -27,6 +29,15 @@ export default function IfrOrganizerDashboard() {
         setParticipants(data.participants || []);
         setIsAuthenticated(true);
         localStorage.setItem("ifr_admin_passcode", code);
+        
+        // Fetch event status
+        try {
+          const statusRes = await fetch("/api/ifr/status");
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            setEventStatus(statusData.status || "open");
+          }
+        } catch (e) {}
       } else {
         setError("Passcode tidak sah. Sila cuba lagi.");
         localStorage.removeItem("ifr_admin_passcode");
@@ -49,6 +60,32 @@ export default function IfrOrganizerDashboard() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     await fetchData(passcode);
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!confirm(`Adakah anda pasti mahu menukar status kepada: ${newStatus}?`)) return;
+    
+    setUpdatingStatus(true);
+    try {
+      const res = await fetch("/api/ifr/admin/status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${passcode}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        setEventStatus(newStatus);
+        alert("Status acara berjaya dikemas kini!");
+      } else {
+        alert("Gagal mengemas kini status.");
+      }
+    } catch (err) {
+      alert("Ralat semasa menyambung ke pelayan.");
+    } finally {
+      setUpdatingStatus(false);
+    }
   };
 
   const filteredParticipants = participants.filter(
@@ -148,6 +185,29 @@ export default function IfrOrganizerDashboard() {
           >
             Log Keluar
           </button>
+        </div>
+
+        {/* Status Control */}
+        <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8">
+          <h2 className="text-xl font-bold text-slate-900 mb-4">Kawalan Status Acara</h2>
+          <div className="flex flex-col md:flex-row gap-4">
+            <select
+              value={eventStatus}
+              onChange={(e) => handleStatusChange(e.target.value)}
+              disabled={updatingStatus}
+              className="bg-slate-50 border border-slate-300 rounded-lg px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#8cc63f] min-w-[200px]"
+            >
+              <option value="open">Buka Pendaftaran (Open)</option>
+              <option value="closed_registration">Tutup Pendaftaran (Closed)</option>
+              <option value="event_ended">Acara Tamat (Event Ended)</option>
+            </select>
+            {updatingStatus && <span className="text-sm text-slate-500 self-center">Menyimpan...</span>}
+          </div>
+          <p className="text-sm text-slate-500 mt-3">
+            {eventStatus === 'open' && "Pendaftaran dibuka seperti biasa."}
+            {eventStatus === 'closed_registration' && "Pendaftaran ditutup. Borang akan disembunyikan pada pandangan awam."}
+            {eventStatus === 'event_ended' && "Acara ditutup sepenuhnya dengan mesej penghargaan."}
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

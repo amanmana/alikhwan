@@ -84,6 +84,18 @@ export default function IfrRegistration() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [eventStatus, setEventStatus] = useState<string>("open");
+  const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/ifr/status")
+      .then((res) => res.json())
+      .then((data) => {
+        setEventStatus(data.status || "open");
+      })
+      .catch(() => setEventStatus("open"))
+      .finally(() => setIsLoadingStatus(false));
+  }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -256,8 +268,18 @@ export default function IfrRegistration() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 mt-8">
-        <div className="flex flex-col md:flex-row gap-5">
+      {eventStatus === 'event_ended' ? (
+        <div className="max-w-3xl mx-auto px-4 text-center mt-12 mb-20">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-10">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6">Acara Telah Tamat</h2>
+            <p className="text-slate-600 text-lg md:text-xl">
+              Terima kasih atas penyertaan anda! Semoga kita bertemu lagi pada acara akan datang.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 mt-8">
+          <div className="flex flex-col md:flex-row gap-5">
           
           {/* Left Navigation Menu */}
           <div className="w-full md:w-52 shrink-0">
@@ -298,7 +320,16 @@ export default function IfrRegistration() {
             </h2>
           </div>
 
-          {error && (
+          {eventStatus === 'closed_registration' ? (
+            <div className="py-12 text-center bg-slate-50 rounded-xl border border-slate-200 mt-6">
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Penyertaan Telah Ditutup</h3>
+              <p className="text-slate-600">
+                Terima kasih atas minat anda, namun pendaftaran untuk Ikhwan Fun Run 3.0 telah pun ditutup.
+              </p>
+            </div>
+          ) : (
+            <>
+              {error && (
             <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-4 rounded-lg mb-6 flex items-start">
               <AlertCircle className="w-5 h-5 mr-3 shrink-0 mt-0.5" />
               <p>{error}</p>
@@ -523,6 +554,8 @@ export default function IfrRegistration() {
               </button>
             </div>
           </form>
+            </>
+          )}
         </div>
              ) : (
                 <div className="bg-white rounded-2xl p-6 md:p-8 shadow-xl border border-slate-200 min-h-[400px]">
