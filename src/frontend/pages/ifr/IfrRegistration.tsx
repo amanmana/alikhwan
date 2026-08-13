@@ -228,7 +228,7 @@ export default function IfrRegistration() {
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-16">
       {/* Header Banner (Hero Image) */}
       <div className="w-full bg-[#0A192F] shadow-lg mb-8">
-        <div className="max-w-4xl mx-auto relative">
+        <div className="max-w-5xl mx-auto relative">
           <img 
             src="/hero.webp" 
             alt="Ikhwan Fun Run 3.0" 
@@ -256,7 +256,7 @@ export default function IfrRegistration() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 mt-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 mt-8">
         <div className="flex flex-col md:flex-row gap-5">
           
           {/* Left Navigation Menu */}
