@@ -5,6 +5,7 @@ import publicRouter from "./routes/public.ts";
 import authRouter from "./routes/auth.ts";
 import meRouter from "./routes/me.ts";
 import adminRouter from "./routes/admin.ts";
+import ifrRouter from "./routes/ifr.ts";
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -41,6 +42,7 @@ app.route("/api/public", publicRouter);
 app.route("/api/auth", authRouter);
 app.route("/api/me", meRouter);
 app.route("/api/admin", adminRouter);
+app.route("/api/ifr", ifrRouter);
 
 // 4. Global Error Handler (Hono Error Boundary)
 app.onError((err, c) => {
@@ -53,6 +55,27 @@ app.onError((err, c) => {
     },
     500,
   );
+});
+
+// Intercept /ifr for customized Social Previews (WhatsApp OG Tags)
+app.get("/ifr*", async (c) => {
+  if (c.env.ASSETS) {
+    const res = await c.env.ASSETS.fetch(new Request(new URL("/index.html", c.req.url)));
+    if (!res.ok) return res;
+
+    // @ts-ignore - HTMLRewriter is available in Cloudflare Workers runtime
+    const rewriter = new HTMLRewriter()
+      .on('meta[property="og:title"]', { element(e: any) { e.setAttribute("content", "Pendaftaran Ikhwan Fun Run 3.0") } })
+      .on('meta[property="og:description"]', { element(e: any) { e.setAttribute("content", "Sertai larian santai Ikhwan Fun Run 3.0! Klik di sini untuk mendaftar secara rasmi.") } })
+      .on('meta[property="og:image"]', { element(e: any) { e.setAttribute("content", "https://alikhwan.amanmana.workers.dev/hero.webp") } })
+      .on('meta[property="og:url"]', { element(e: any) { e.setAttribute("content", "https://alikhwan.amanmana.workers.dev/ifr") } })
+      .on('meta[name="twitter:title"]', { element(e: any) { e.setAttribute("content", "Pendaftaran Ikhwan Fun Run 3.0") } })
+      .on('meta[name="twitter:description"]', { element(e: any) { e.setAttribute("content", "Sertai larian santai Ikhwan Fun Run 3.0! Klik di sini untuk mendaftar secara rasmi.") } })
+      .on('meta[name="twitter:image"]', { element(e: any) { e.setAttribute("content", "https://alikhwan.amanmana.workers.dev/hero.webp") } });
+      
+    return rewriter.transform(res);
+  }
+  return c.text("Sila rujuk pentadbir sistem.", 404);
 });
 
 // 5. Global Not Found Handler

@@ -170,12 +170,7 @@ export default function Home() {
           >
             Notis Privasi
           </Link>
-          <a
-            href="mailto:info@surau-alikhwan.org.my"
-            className="hover:text-brand-primary font-medium underline"
-          >
-            Hubungi Surau
-          </a>
+
           <Link
             to="/admin/login"
             className="hover:text-brand-primary font-medium underline"

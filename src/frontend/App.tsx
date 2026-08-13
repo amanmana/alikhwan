@@ -26,6 +26,12 @@ const AdminSessions = lazy(() => import("./pages/AdminSessions.tsx"));
 const AdminSettings = lazy(() => import("./pages/AdminSettings.tsx"));
 const Errors = lazy(() => import("./pages/Errors.tsx"));
 
+// Ikhwan Fun Run (IFR) Module
+const IfrRegistration = lazy(() => import("./pages/ifr/IfrRegistration.tsx"));
+const IfrReceipt = lazy(() => import("./pages/ifr/IfrReceipt.tsx"));
+const IfrParticipantInfo = lazy(() => import("./pages/ifr/IfrParticipantInfo.tsx"));
+const IfrOrganizerDashboard = lazy(() => import("./pages/ifr/IfrOrganizerDashboard.tsx"));
+
 // Scroll to top helper on route change
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -146,6 +152,12 @@ export default function App() {
           <Route path="/semak-keahlian" element={<MembershipCheck />} />
           <Route path="/tuntut-akaun" element={<AccountClaim />} />
           <Route path="/notis-privasi" element={<PrivacyNotice />} />
+
+          {/* Ikhwan Fun Run Routes */}
+          <Route path="/ifr" element={<IfrRegistration />} />
+          <Route path="/ifr/resit/:id" element={<IfrReceipt />} />
+          <Route path="/ifr/peserta/:id" element={<IfrParticipantInfo />} />
+          <Route path="/ifr/admin" element={<IfrOrganizerDashboard />} />
 
           <Route
             path="/log-masuk"
