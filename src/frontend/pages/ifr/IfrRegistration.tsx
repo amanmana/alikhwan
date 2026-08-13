@@ -585,17 +585,11 @@ export default function IfrRegistration() {
                          </div>
 
                          <div>
-                           <h3 className="font-bold text-lg mb-2">5. Hadiah Pemenang</h3>
-                           <p className="mb-2">Kategori lelaki dan wanita masing-masing menyediakan hadiah untuk tiga kedudukan teratas:</p>
-                           <ul className="list-disc pl-5 space-y-2 mb-2">
-                             <li>Tempat Pertama: Medal Emas</li>
-                             <li>Tempat Kedua: Medal Perak</li>
-                             <li>Tempat Ketiga: Medal Gangsa</li>
-                           </ul>
+                           <h3 className="font-bold text-lg mb-2">5. Konsep Larian & Hadiah</h3>
                            <ul className="list-disc pl-5 space-y-2">
+                             <li>Oleh kerana acara ini berkonsepkan <span className="italic">fun run</span> (larian santai), pihak penganjur <span className="font-bold">tidak menyediakan sebarang hadiah kemenangan</span> untuk peserta terawal.</li>
+                             <li>Sebaliknya, <span className="font-bold">semua peserta</span> yang berjaya menamatkan larian akan disediakan dengan <span className="font-bold">medal finisher</span>.</li>
                              <li>Reka bentuk medal dalam bahan promosi adalah ilustrasi sahaja dan mungkin berbeza daripada medal sebenar.</li>
-                             <li>Keputusan rasmi penganjur berkaitan kedudukan dan kelayakan pemenang adalah muktamad.</li>
-                             <li>Maklumat berkaitan medal finisher dan cabutan bertuah, jika ada, akan diumumkan kemudian.</li>
                            </ul>
                          </div>
 
