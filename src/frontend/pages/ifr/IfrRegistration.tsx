@@ -265,35 +265,37 @@ export default function IfrRegistration() {
                 <div className="bg-[#0A192F] text-white font-bold py-3 px-4 text-center text-base">
                   Maklumat Acara
                 </div>
-                <div className="flex flex-col bg-white">
-                   {TABS.map(tab => (
-                      <button 
-                         key={tab.id}
-                         onClick={() => setActiveTab(tab.id)}
-                         className={`py-3 px-4 text-center text-sm transition-colors border-b border-slate-100 last:border-b-0 ${activeTab === tab.id ? 'bg-[#8cc63f] font-bold text-[#0A192F]' : 'text-slate-600 hover:bg-slate-50'}`}
-                      >
-                         {tab.label}
-                      </button>
-                   ))}
-                </div>
-             </div>
-          </div>
+                 <div className="flex flex-col bg-white">
+                    {TABS.map(tab => (
+                       <button 
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id)}
+                          className={`py-3 px-4 text-center text-sm transition-colors border-b border-slate-100 ${activeTab === tab.id ? 'bg-[#8cc63f] font-bold text-[#0A192F]' : 'text-slate-600 hover:bg-slate-50'}`}
+                       >
+                          {tab.label}
+                       </button>
+                    ))}
+                 </div>
+                 <div className="bg-slate-100 p-4">
+                    <button
+                      onClick={() => setIsCheckModalOpen(true)}
+                      className="w-full text-[#0A192F] bg-slate-200 hover:bg-slate-300 px-4 py-3 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center whitespace-nowrap"
+                    >
+                      <Search className="w-4 h-4 mr-2" />
+                      Resit Penyertaan
+                    </button>
+                 </div>
+              </div>
+           </div>
 
           {/* Right Content Area */}
           <div className="w-full md:flex-1 min-w-0">
              {activeTab === 'borang' ? (
                 <div className="bg-white rounded-2xl p-6 md:p-8 shadow-xl border border-slate-200">
-                  <div className="flex flex-col md:flex-row justify-between md:items-end mb-6 border-b border-slate-200 pb-4 gap-4">
+                  <div className="mb-6 border-b border-slate-200 pb-4">
             <h2 className="text-2xl font-bold text-slate-900">
               Borang Penyertaan
             </h2>
-            <button
-              onClick={() => setIsCheckModalOpen(true)}
-              className="text-[#0A192F] bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center whitespace-nowrap w-full md:w-auto"
-            >
-              <Search className="w-4 h-4 mr-2" />
-              Dapatkan Semula Resit
-            </button>
           </div>
 
           {error && (

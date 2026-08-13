@@ -79,19 +79,14 @@ app.get("/ifr*", async (c) => {
 });
 
 // 5. Global Not Found Handler
-app.notFound((c) => {
+app.notFound(async (c) => {
   if (c.req.path.startsWith("/api/")) {
     return c.json({ error: "Pautan API tidak ditemui." }, 404);
   }
 
-  // SPA fallback if worker catches a non-matching page request
-  // (e.g. during local Wrangler dev testing or specific asset configurations)
+  // SPA fallback for all unrecognized paths
   if (c.env.ASSETS) {
-    try {
-      return c.env.ASSETS.fetch(c.req.raw);
-    } catch {
-      // Fallback below
-    }
+    return await c.env.ASSETS.fetch(new Request(new URL("/index.html", c.req.url)));
   }
 
   return c.text("Laman tidak ditemui (404).", 404);
