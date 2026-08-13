@@ -60,7 +60,14 @@ export default function IfrParticipantInfo() {
     );
   }
 
-  const formattedDate = new Date(participant.created_at).toLocaleDateString("ms-MY", {
+  const parseDate = (dateStr: string) => {
+    if (!dateStr) return new Date();
+    const isoStr = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
+    return new Date(isoStr);
+  };
+
+  const formattedDate = parseDate(participant.created_at).toLocaleDateString("ms-MY", {
+    timeZone: "Asia/Kuala_Lumpur",
     day: "numeric",
     month: "long",
     year: "numeric",

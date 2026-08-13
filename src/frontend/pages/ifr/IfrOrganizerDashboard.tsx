@@ -73,7 +73,7 @@ export default function IfrOrganizerDashboard() {
         `"${p.shirt_size}"`,
         `"${(p.address || "").replace(/"/g, '""')}"`,
         `"${p.emergency_contact_phone || ""}"`,
-        `"${new Date(p.created_at).toLocaleString('ms-MY')}"`
+        `"${new Date(p.created_at.includes('T') ? p.created_at : p.created_at.replace(' ', 'T') + 'Z').toLocaleString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' })}"`
       ];
       csvRows.push(row.join(","));
     }
