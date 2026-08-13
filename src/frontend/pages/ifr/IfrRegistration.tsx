@@ -689,6 +689,7 @@ export default function IfrRegistration() {
           </div>
         </div>
       </div>
+      )}
       <IfrCheckReceiptModal 
         isOpen={isCheckModalOpen} 
         onClose={() => setIsCheckModalOpen(false)} 
