@@ -58,7 +58,7 @@ app.onError((err, c) => {
 });
 
 // Intercept /ifr for customized Social Previews (WhatsApp OG Tags)
-app.get("/ifr*", async (c) => {
+const ifrPreviewHandler = async (c: any) => {
   if (c.env.ASSETS) {
     const res = await c.env.ASSETS.fetch(new Request(new URL("/index.html", c.req.url)));
     if (!res.ok) return res;
@@ -73,10 +73,17 @@ app.get("/ifr*", async (c) => {
       .on('meta[name="twitter:description"]', { element(e: any) { e.setAttribute("content", "Sertai larian santai Ikhwan Fun Run 3.0! Klik di sini untuk mendaftar secara rasmi.") } })
       .on('meta[name="twitter:image"]', { element(e: any) { e.setAttribute("content", "https://alikhwan.amanmana.workers.dev/hero.webp") } });
       
-    return rewriter.transform(res);
+    const transformed = rewriter.transform(res);
+    const finalRes = new Response(transformed.body, transformed);
+    finalRes.headers.set("X-Ifr-Rewritten", "true");
+    finalRes.headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    return finalRes;
   }
   return c.text("Sila rujuk pentadbir sistem.", 404);
-});
+};
+
+app.get("/ifr", ifrPreviewHandler);
+app.get("/ifr/*", ifrPreviewHandler);
 
 // 5. Global Not Found Handler
 app.notFound(async (c) => {
