@@ -560,7 +560,7 @@ export default function IfrRegistration() {
                              <li>Pendaftaran hanya disahkan selepas pembayaran berjaya.</li>
                              <li>Yuran penyertaan sebanyak <span className="font-bold">RM40 tidak boleh dikembalikan</span>.</li>
                              <li>Penyertaan <span className="font-bold">boleh dipindah milik</span> kepada peserta lain tertakluk kepada prosedur yang ditetapkan oleh penganjur.</li>
-                             <li>Setiap pendaftaran termasuk <span className="font-bold">T-shirt rasmi Ikhwan Fun Run 3.0</span>, tertakluk kepada saiz dan stok yang tersedia.</li>
+                             <li>Setiap pendaftaran disediakan <span className="font-bold">T-shirt rasmi Ikhwan Fun Run 3.0</span>, tertakluk kepada saiz dan stok yang tersedia.</li>
                            </ul>
                          </div>
 
