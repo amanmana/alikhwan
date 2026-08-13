@@ -580,7 +580,7 @@ export default function IfrRegistration() {
                              <li>Peserta hendaklah mengikuti laluan rasmi serta arahan penganjur, marshal, petugas keselamatan dan petugas perubatan.</li>
                              <li>Peserta tidak dibenarkan mengambil jalan pintas atau melakukan tindakan yang boleh memberikan kelebihan tidak adil.</li>
                              <li>Penganjur berhak menyingkirkan peserta yang melanggar peraturan atau membahayakan peserta lain.</li>
-                             <li>Acara ini tidak menggunakan race bib.</li>
+                             <li>Setiap peserta akan disediakan <span className="font-bold">race bib</span>. Nombor pada <span className="italic">bib</span> tersebut akan dijadikan sebagai nombor cabutan bertuah.</li>
                            </ul>
                          </div>
 
