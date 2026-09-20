@@ -292,21 +292,26 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             </h3>
 
             <div className="divide-y divide-gray-150">
-              {recentMembers.map((member: any) => (
+              {recentMembers.map((member: any, index: number) => (
                 <div
                   key={member.id}
                   className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-4"
                 >
-                  <div className="space-y-0.5">
-                    <h4 className="font-bold text-xs sm:text-sm text-brand-text">
-                      {member.full_name}
-                    </h4>
-                    <span className="text-[10px] text-brand-muted">
-                      Daftar:{" "}
-                      {new Date(member.created_at || member.updated_at).toLocaleDateString("ms-MY")}
+                  <div className="flex items-start gap-3 min-w-0">
+                    <span className="text-xs font-bold text-gray-400 w-5 text-right flex-shrink-0 pt-0.5">
+                      {index + 1}.
                     </span>
+                    <div className="space-y-0.5 min-w-0">
+                      <h4 className="font-bold text-xs sm:text-sm text-brand-text truncate">
+                        {member.full_name}
+                      </h4>
+                      <span className="text-[10px] text-brand-muted block">
+                        Daftar:{" "}
+                        {new Date(member.created_at || member.updated_at).toLocaleDateString("ms-MY")}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <span
                       className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                         member.membership_status === "active"
