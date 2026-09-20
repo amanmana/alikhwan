@@ -159,7 +159,7 @@ app.get("/dashboard", async (c) => {
     ).first<any>();
 
     const recentMembers = await c.env.DB.prepare(
-      "SELECT id, full_name, membership_status, created_at, updated_at FROM members ORDER BY created_at DESC, updated_at DESC LIMIT 200",
+      "SELECT id, full_name, membership_status, created_at, updated_at FROM members WHERE registration_source = 'public_registration' ORDER BY created_at DESC, updated_at DESC",
     )
       .all()
       .then((res) => res.results);

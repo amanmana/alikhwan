@@ -288,7 +288,7 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             className="scroll-mt-24 bg-brand-surface border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 space-y-4"
           >
             <h3 className="font-bold text-brand-text text-sm sm:text-base border-b border-gray-100 pb-2">
-              Pendaftaran / Kemaskini Terbaru
+              Senarai Ahli Baharu (Pendaftaran Awam)
             </h3>
 
             <div className="divide-y divide-gray-150">
