@@ -122,11 +122,13 @@ export default function IfrOrganizerDashboard() {
   const handleDownloadCSV = () => {
     if (filteredParticipants.length === 0) return;
 
-    const headers = ["Nama", "No IC", "No Telefon", "Kategori", "Saiz Baju", "Alamat Semasa", "No Tel Waris (Kecemasan)", "Tarikh Daftar", "Status Kit"];
+    const headers = ["No.", "Nama", "No IC", "No Telefon", "Kategori", "Saiz Baju", "Alamat Semasa", "No Tel Waris (Kecemasan)", "Tarikh Daftar", "Status Kit"];
     const csvRows = [headers.join(",")];
 
-    for (const p of filteredParticipants) {
+    for (let i = 0; i < filteredParticipants.length; i++) {
+      const p = filteredParticipants[i];
       const row = [
+        `"${i + 1}"`,
         `"${p.name}"`,
         `"${p.ic_number}"`,
         `"${p.phone}"`,

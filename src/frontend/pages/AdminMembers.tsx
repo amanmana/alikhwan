@@ -177,6 +177,7 @@ export default function AdminMembers({
       return `"${safe.replace(/"/g, '""')}"`;
     };
     const headers = [
+      "No.",
       "Nama Penuh",
       "No. IC",
       "No. Telefon",
@@ -187,7 +188,8 @@ export default function AdminMembers({
       "Direktori",
       "Tarikh Daftar",
     ];
-    const rows = (data.members || []).map((member: any) => [
+    const rows = (data.members || []).map((member: any, index: number) => [
+      index + 1,
       member.full_name,
       member.ic_normalized
         ? formatIcForDisplay(member.ic_normalized)

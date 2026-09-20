@@ -467,7 +467,7 @@ export default function IfrRegistration() {
             <div className="mt-8 pt-8 border-t border-slate-200">
               <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center">
                 <CreditCard className="w-6 h-6 mr-2 text-[#8cc63f]" />
-                Maklumat Pembayaran (Yuran: RM40)
+                Maklumat Pembayaran (Yuran: RM20)
               </h3>
               
               <div className="bg-white text-slate-900 rounded-xl p-6 shadow-md mb-6 relative overflow-hidden">
@@ -581,7 +581,7 @@ export default function IfrRegistration() {
                              <li><span className="font-bold">Tarikh:</span> 10 Oktober 2026</li>
                              <li><span className="font-bold">Lokasi:</span> Taman Puncak Jalil 2</li>
                              <li><span className="font-bold">Kategori:</span> 5.3KM – Terbuka</li>
-                             <li><span className="font-bold">Yuran:</span> RM40 seorang</li>
+                             <li><span className="font-bold">Yuran:</span> RM20 seorang</li>
                              <li><span className="font-bold">Pendaftaran rasmi:</span> <a href="https://alikhwan.amanmana.workers.dev/ifr" target="_blank" rel="noreferrer" className="underline decoration-slate-400 underline-offset-2">https://alikhwan.amanmana.workers.dev/ifr</a></li>
                            </ul>
                          </div>
@@ -591,7 +591,7 @@ export default function IfrRegistration() {
                            <ul className="list-disc pl-5 space-y-2">
                              <li>Semua maklumat pendaftaran hendaklah tepat dan lengkap.</li>
                              <li>Pendaftaran hanya disahkan selepas pembayaran berjaya.</li>
-                             <li>Yuran penyertaan sebanyak <span className="font-bold">RM40 tidak boleh dikembalikan</span>.</li>
+                             <li>Yuran penyertaan sebanyak <span className="font-bold">RM20 tidak boleh dikembalikan</span>.</li>
                              <li>Penyertaan <span className="font-bold">boleh dipindah milik</span> kepada peserta lain tertakluk kepada prosedur yang ditetapkan oleh penganjur.</li>
                              <li>Setiap pendaftaran disediakan <span className="font-bold">T-shirt rasmi Ikhwan Fun Run 3.0</span>, tertakluk kepada saiz dan stok yang tersedia.</li>
                            </ul>
@@ -655,30 +655,45 @@ export default function IfrRegistration() {
                          </div>
                        </div>
                      ) : activeTab === 'contact' ? (
-                       <div className="text-slate-800 text-sm md:text-base space-y-6">
-                         <h2 className="text-xl md:text-2xl font-bold">Maklumat Penganjur</h2>
-                         
-                         <p><span className="font-bold">Ikhwan Fun Run 3.0</span> dianjurkan oleh <span className="font-bold">Surau Al Ikhwan, Taman Puncak Jalil 2</span> sebagai sebuah acara larian komuniti yang menghimpunkan penduduk setempat, keluarga dan peserta daripada pelbagai peringkat umur.</p>
-                         
-                         <p>Penganjuran acara ini bertujuan menggalakkan <span className="font-bold">gaya hidup sihat</span>, mengeratkan hubungan sesama komuniti serta mewujudkan suasana kebersamaan melalui aktiviti riadah yang santai dan menyeronokkan.</p>
-                         
-                         <p>Dengan kategori <span className="font-bold">5.3KM Terbuka</span>, Ikhwan Fun Run 3.0 memberi peluang kepada semua untuk turut serta sama ada secara individu, bersama keluarga atau rakan-rakan. Kanak-kanak dan peserta yang menggunakan stroller juga dialu-alukan untuk menyertai acara ini.</p>
-                         
-                         <div>
-                           <h3 className="font-bold text-lg mb-2">Penganjur</h3>
-                           <p><span className="font-bold">Surau Al Ikhwan</span><br/>Taman Puncak Jalil 2</p>
-                         </div>
-                         
-                         <div>
-                           <h3 className="font-bold text-lg mb-2">Acara</h3>
-                           <p><span className="font-bold">Ikhwan Fun Run 3.0</span><br/>
-                           <span className="font-bold">Tarikh:</span> 10 Oktober 2026<br/>
-                           <span className="font-bold">Lokasi:</span> Taman Puncak Jalil 2</p>
-                         </div>
-                         
-                         <p className="font-bold text-lg pt-2 text-[#0A192F]">"Lari Bersama, Sihat Bersama, Ukhuwah Terjalin Selamanya!"</p>
-                       </div>
-                     ) : (
+                        <div className="text-slate-800 text-sm md:text-base space-y-6">
+                          <h2 className="text-xl md:text-2xl font-bold">Maklumat Penganjur</h2>
+                          
+                          <p><span className="font-bold">Ikhwan Fun Run 3.0</span> dianjurkan oleh <span className="font-bold">Surau Al Ikhwan, Taman Puncak Jalil 2</span> sebagai sebuah acara larian komuniti yang menghimpunkan penduduk setempat, keluarga dan peserta daripada pelbagai peringkat umur.</p>
+                          
+                          <p>Penganjuran acara ini bertujuan menggalakkan <span className="font-bold">gaya hidup sihat</span>, mengeratkan hubungan sesama komuniti serta mewujudkan suasana kebersamaan melalui aktiviti riadah yang santai dan menyeronokkan.</p>
+                          
+                          <p>Dengan kategori <span className="font-bold">5.3KM Terbuka</span>, Ikhwan Fun Run 3.0 memberi peluang kepada semua untuk turut serta sama ada secara individu, bersama keluarga atau rakan-rakan. Kanak-kanak dan peserta yang menggunakan stroller juga dialu-alukan untuk menyertai acara ini.</p>
+                          
+                          <div>
+                            <h3 className="font-bold text-lg mb-2">Penganjur</h3>
+                            <p><span className="font-bold">Surau Al Ikhwan</span><br/>Taman Puncak Jalil 2</p>
+                          </div>
+                          
+                          <div>
+                            <h3 className="font-bold text-lg mb-2">Acara</h3>
+                            <p><span className="font-bold">Ikhwan Fun Run 3.0</span><br/>
+                            <span className="font-bold">Tarikh:</span> 10 Oktober 2026<br/>
+                            <span className="font-bold">Lokasi:</span> Taman Puncak Jalil 2</p>
+                          </div>
+
+                          <div>
+                            <h3 className="font-bold text-lg mb-2">Hubungi</h3>
+                            <p className="mb-3">Untuk sebarang pertanyaan berkaitan Ikhwan Fun Run 3.0, sila hubungi:</p>
+                            <div className="space-y-3">
+                              <p>
+                                <span className="font-bold">Sukry Abdul Kadir</span><br/>
+                                <a href="tel:0133293381" className="text-blue-600 hover:underline font-medium">013-329 3381</a>
+                              </p>
+                              <p>
+                                <span className="font-bold">Shahrul Anis Sarhadat</span><br/>
+                                <a href="tel:0192629275" className="text-blue-600 hover:underline font-medium">019-262 9275</a>
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <p className="font-bold text-lg pt-2 text-[#0A192F]">“Lari Bersama, Sihat Bersama, Ukhuwah Terjalin Selamanya!”</p>
+                        </div>
+                      ) : (
                        <>
                          <p>Maklumat rasmi bagi halaman ini akan dikemas kini kelak.</p>
                        </>

@@ -307,8 +307,8 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                       {member.full_name}
                     </h4>
                     <span className="text-[10px] text-brand-muted">
-                      Kemaskini:{" "}
-                      {new Date(member.updated_at).toLocaleDateString("ms-MY")}
+                      Daftar:{" "}
+                      {new Date(member.created_at || member.updated_at).toLocaleDateString("ms-MY")}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -343,6 +343,15 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                   Tiada aktiviti pendaftaran baru ditemui.
                 </p>
               )}
+            </div>
+
+            <div className="pt-2 border-t border-gray-100 flex justify-end">
+              <Link
+                to="/admin/ahli"
+                className="text-xs text-brand-primary hover:underline font-semibold flex items-center gap-1"
+              >
+                Lihat Semua Ahli Kariah <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
           </section>
         </main>
