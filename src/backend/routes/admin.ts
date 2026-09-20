@@ -152,7 +152,7 @@ app.get("/dashboard", async (c) => {
       "SELECT COUNT(*) as count FROM account_claims WHERE status = 'pending'",
     ).first<any>();
     const newRegistrations = await c.env.DB.prepare(
-      "SELECT COUNT(*) as count FROM members WHERE registration_source = 'public_registration' AND created_at >= datetime('now', '-30 days')",
+      "SELECT COUNT(*) as count FROM members WHERE registration_source = 'public_registration'",
     ).first<any>();
     const unclaimedCount = await c.env.DB.prepare(
       "SELECT COUNT(*) as count FROM members m LEFT JOIN member_accounts a ON m.id = a.member_id WHERE a.id IS NULL AND m.membership_status = 'active'",

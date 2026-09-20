@@ -264,11 +264,6 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                   : "border-gray-200 bg-brand-surface"
               }`}
             >
-              {stats.newRegistrations > 0 && (
-                <span className="absolute right-2 top-2 rounded-full bg-brand-accent px-1.5 py-0.5 text-[9px] font-bold text-brand-text">
-                  30 hari
-                </span>
-              )}
               <span className="block text-[10px] font-bold uppercase text-brand-muted">
                 Ahli Baharu
               </span>
