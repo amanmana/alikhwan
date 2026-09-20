@@ -524,6 +524,7 @@ export default function AdminMembers({
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-brand-muted uppercase font-bold">
+                  <th className="px-4 py-3 w-12 text-center">No.</th>
                   <th className="px-4 py-3">Nama Penuh</th>
                   <th className="px-4 py-3">No. IC</th>
                   <th className="px-4 py-3">No. Telefon</th>
@@ -534,8 +535,11 @@ export default function AdminMembers({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-150">
-                {members.map((m) => (
+                {members.map((m, index) => (
                   <tr key={m.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3.5 text-center text-gray-500 font-medium">
+                      {(page - 1) * (pagination?.limit || 20) + index + 1}
+                    </td>
                     <td className="px-4 py-3.5 font-bold text-brand-text">
                       {m.full_name}
                     </td>
@@ -582,7 +586,7 @@ export default function AdminMembers({
                 {members.length === 0 && !loading && (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="text-center py-8 text-brand-muted"
                     >
                       Tiada rekod ahli ditemui.
