@@ -579,6 +579,7 @@ export default function IfrRegistration() {
                            <ul className="space-y-1">
                              <li><span className="font-bold">Penganjur:</span> Surau Al Ikhwan, Taman Puncak Jalil 2</li>
                              <li><span className="font-bold">Tarikh:</span> 10 Oktober 2026</li>
+                             <li><span className="font-bold">Masa:</span> 7.30 pagi</li>
                              <li><span className="font-bold">Lokasi:</span> Taman Puncak Jalil 2</li>
                              <li><span className="font-bold">Kategori:</span> 5.3KM – Terbuka</li>
                              <li><span className="font-bold">Yuran:</span> RM20 seorang</li>
@@ -673,6 +674,7 @@ export default function IfrRegistration() {
                             <h3 className="font-bold text-lg mb-2">Acara</h3>
                             <p><span className="font-bold">Ikhwan Fun Run 3.0</span><br/>
                             <span className="font-bold">Tarikh:</span> 10 Oktober 2026<br/>
+                            <span className="font-bold">Masa:</span> 7.30 pagi<br/>
                             <span className="font-bold">Lokasi:</span> Taman Puncak Jalil 2</p>
                           </div>
 
