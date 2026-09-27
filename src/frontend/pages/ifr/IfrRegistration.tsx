@@ -569,6 +569,8 @@ export default function IfrRegistration() {
                        <img src="/barangan_peserta.webp" alt="Barangan Peserta" className="w-full h-auto rounded-xl shadow-sm border border-slate-100" />
                      ) : activeTab === 'prizes' ? (
                        <img src="/hadiah.webp" alt="Hadiah" className="w-full h-auto rounded-xl shadow-sm border border-slate-100" />
+                     ) : activeTab === 'course' ? (
+                       <img src="/map.png" alt="Laluan Larian" className="w-full h-auto rounded-xl shadow-sm border border-slate-100" />
                      ) : activeTab === 'tnc' ? (
                        <div className="text-slate-800 text-sm md:text-base space-y-6">
                          <h2 className="text-xl md:text-2xl font-bold">Terma & Syarat Ikhwan Fun Run 3.0</h2>
