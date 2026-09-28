@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Camera, CreditCard, Upload, CheckCircle, AlertCircle, Search } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import IfrCheckReceiptModal from "./IfrCheckReceiptModal";
+import IfrCertificateModal from "./IfrCertificateModal";
 
 const CountdownTimer = () => {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
@@ -70,6 +71,7 @@ const TABS = [
 export default function IfrRegistration() {
   const navigate = useNavigate();
   const [isCheckModalOpen, setIsCheckModalOpen] = useState(false);
+  const [isCertModalOpen, setIsCertModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("borang");
   const [formData, setFormData] = useState({
     name: "",
@@ -305,6 +307,13 @@ export default function IfrRegistration() {
                     >
                       <Search className="w-4 h-4 mr-2" />
                       Resit Penyertaan
+                    </button>
+                    <button
+                      onClick={() => setIsCertModalOpen(true)}
+                      className="w-full mt-3 text-[#0A192F] bg-[#8cc63f]/20 hover:bg-[#8cc63f]/30 border border-[#8cc63f]/50 px-4 py-3 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center whitespace-nowrap"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                      Sijil Penyertaan
                     </button>
                  </div>
               </div>
@@ -712,6 +721,10 @@ export default function IfrRegistration() {
       <IfrCheckReceiptModal 
         isOpen={isCheckModalOpen} 
         onClose={() => setIsCheckModalOpen(false)} 
+      />
+      <IfrCertificateModal 
+        isOpen={isCertModalOpen} 
+        onClose={() => setIsCertModalOpen(false)} 
       />
     </div>
   );

@@ -23,6 +23,7 @@
   "dependencies": {
     "@types/uuid": "^10.0.0",
     "hono": "^4.4.7",
+    "jspdf": "^4.2.1",
     "libphonenumber-js": "^1.11.4",
     "lucide-react": "^0.395.0",
     "qrcode.react": "^4.2.0",
