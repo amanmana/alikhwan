@@ -53,8 +53,8 @@ export default function IfrCertificateModal({ isOpen, onClose }: IfrCertificateM
       // Draw name in the center (adjust Y coordinate based on template design)
       // Looking at the template, the name goes right below "Dengan ini diperakui bahawa"
       // Assuming a 2000x1414 standard size, Y=650 might be appropriate. 
-      // We will use standard center X, and calculate Y around 51% of height.
-      const nameY = canvas.height * 0.51; 
+      // We will use standard center X, and calculate Y around 48% of height.
+      const nameY = canvas.height * 0.48; 
       
       // Add text shadow or just solid text
       ctx.fillText(name.toUpperCase(), canvas.width / 2, nameY);
