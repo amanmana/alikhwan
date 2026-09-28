@@ -16,10 +16,26 @@ export default function IfrCertificateModal({ isOpen, onClose }: IfrCertificateM
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isCanvasReady, setIsCanvasReady] = useState(false);
 
-  // Check if date has passed
-  // For testing purposes, we can bypass this with localStorage.getItem("DEBUG_CERT")
-  const releaseDate = new Date("2026-10-10T10:00:00+08:00");
-  const isReleased = new Date() >= releaseDate || localStorage.getItem("DEBUG_CERT") === "true";
+  const [certReleaseDate, setCertReleaseDate] = useState<Date>(new Date("2026-10-10T10:00:00+08:00"));
+  const [isReleased, setIsReleased] = useState<boolean>(false);
+  const [isCheckingDate, setIsCheckingDate] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsCheckingDate(true);
+      fetch("/api/ifr/cert-status")
+        .then(res => res.json())
+        .then(data => {
+          if (data.releaseDate) {
+            const dateObj = new Date(data.releaseDate);
+            setCertReleaseDate(dateObj);
+            setIsReleased(new Date() >= dateObj || localStorage.getItem("DEBUG_CERT") === "true");
+          }
+        })
+        .catch(err => console.error("Failed to fetch cert status", err))
+        .finally(() => setIsCheckingDate(false));
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (participantName && canvasRef.current) {
@@ -179,14 +195,19 @@ export default function IfrCertificateModal({ isOpen, onClose }: IfrCertificateM
         </div>
 
         <div className="p-6 md:p-8">
-          {!isReleased ? (
+          {isCheckingDate ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8cc63f] mx-auto mb-4"></div>
+              <p className="text-slate-500">Menyemak status sijil...</p>
+            </div>
+          ) : !isReleased ? (
             <div className="text-center py-8">
               <div className="bg-amber-100 text-amber-700 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
                 <AlertCircle className="w-8 h-8" />
               </div>
               <h4 className="text-xl font-bold text-slate-800 mb-2">Sijil Belum Boleh Dimuat Turun</h4>
               <p className="text-slate-600 mb-6">
-                E-Sijil hanya boleh dimuat turun bermula <strong className="text-slate-800">10 Oktober 2026, 10:00 pagi</strong>. Harap maklum.
+                E-Sijil hanya boleh dimuat turun bermula <strong className="text-slate-800">{certReleaseDate.toLocaleString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kuala_Lumpur' })}</strong>. Harap maklum.
               </p>
               <button
                 onClick={handleClose}

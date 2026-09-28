@@ -13,6 +13,9 @@ export default function IfrOrganizerDashboard() {
   const [selectedParticipantDetail, setSelectedParticipantDetail] = useState<any>(null);
   const [eventStatus, setEventStatus] = useState("open");
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [certReleaseDate, setCertReleaseDate] = useState("2026-10-10");
+  const [certReleaseTime, setCertReleaseTime] = useState("10:00");
+  const [updatingCert, setUpdatingCert] = useState(false);
 
   const fetchData = async (code: string) => {
     setLoading(true);
@@ -38,6 +41,24 @@ export default function IfrOrganizerDashboard() {
             setEventStatus(statusData.status || "open");
           }
         } catch (e) {}
+
+        // Fetch cert status
+        try {
+          const certRes = await fetch("/api/ifr/cert-status");
+          if (certRes.ok) {
+            const certData = await certRes.json();
+            if (certData.releaseDate) {
+              const d = new Date(certData.releaseDate);
+              const yyyy = d.getFullYear();
+              const mm = String(d.getMonth() + 1).padStart(2, '0');
+              const dd = String(d.getDate()).padStart(2, '0');
+              const hh = String(d.getHours()).padStart(2, '0');
+              const min = String(d.getMinutes()).padStart(2, '0');
+              setCertReleaseDate(`${yyyy}-${mm}-${dd}`);
+              setCertReleaseTime(`${hh}:${min}`);
+            }
+          }
+        } catch (e) {}
       } else {
         setError("Passcode tidak sah. Sila cuba lagi.");
         localStorage.removeItem("ifr_admin_passcode");
@@ -60,6 +81,39 @@ export default function IfrOrganizerDashboard() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     await fetchData(passcode);
+  };
+
+  const handleCertDateChange = async () => {
+    if (!certReleaseDate || !certReleaseTime) {
+      alert("Sila isi tarikh dan masa.");
+      return;
+    }
+    
+    setUpdatingCert(true);
+    try {
+      // Create date object assuming local timezone (Kuala Lumpur)
+      // We will parse it and then toISOString to send properly formatted ISO
+      const dateTimeStr = `${certReleaseDate}T${certReleaseTime}:00+08:00`;
+      const res = await fetch("/api/ifr/admin/cert-status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${passcode}`,
+        },
+        body: JSON.stringify({ releaseDate: dateTimeStr }),
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        alert("Tarikh pelepasan sijil berjaya dikemas kini.");
+      } else {
+        alert(data.error || "Gagal mengemas kini tarikh sijil.");
+      }
+    } catch (e) {
+      alert("Ralat sistem.");
+    } finally {
+      setUpdatingCert(false);
+    }
   };
 
   const handleStatusChange = async (newStatus: string) => {
@@ -234,6 +288,41 @@ export default function IfrOrganizerDashboard() {
             {eventStatus === 'open' && "Pendaftaran dibuka seperti biasa."}
             {eventStatus === 'closed_registration' && "Pendaftaran ditutup. Borang akan disembunyikan pada pandangan awam."}
             {eventStatus === 'event_ended' && "Acara ditutup sepenuhnya dengan mesej penghargaan."}
+          </p>
+        </div>
+
+        {/* Certificate Control */}
+        <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8">
+          <h2 className="text-xl font-bold text-slate-900 mb-4">Tetapan Sijil Digital</h2>
+          <div className="flex flex-col md:flex-row gap-4 items-end">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Tarikh Boleh Dimuat Turun</label>
+              <input
+                type="date"
+                value={certReleaseDate}
+                onChange={(e) => setCertReleaseDate(e.target.value)}
+                className="bg-slate-50 border border-slate-300 rounded-lg px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#8cc63f] min-w-[200px]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Masa</label>
+              <input
+                type="time"
+                value={certReleaseTime}
+                onChange={(e) => setCertReleaseTime(e.target.value)}
+                className="bg-slate-50 border border-slate-300 rounded-lg px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#8cc63f] min-w-[120px]"
+              />
+            </div>
+            <button
+              onClick={handleCertDateChange}
+              disabled={updatingCert}
+              className="bg-[#0A192F] hover:bg-[#112a50] text-white px-6 py-2 rounded-lg font-medium transition-colors h-[42px] disabled:opacity-50"
+            >
+              {updatingCert ? "Menyimpan..." : "Simpan Tetapan"}
+            </button>
+          </div>
+          <p className="text-sm text-slate-500 mt-3">
+            Sijil hanya boleh dimuat turun oleh peserta selepas tarikh dan waktu yang ditetapkan di atas.
           </p>
         </div>
 

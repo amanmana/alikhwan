@@ -194,4 +194,47 @@ router.post("/admin/status", async (c) => {
   }
 });
 
+router.get("/cert-status", async (c) => {
+  try {
+    const result = await c.env.DB.prepare(
+      "SELECT value FROM system_settings WHERE key = 'ifr_cert_release_date'"
+    ).first<any>();
+    
+    // Default to Oct 10, 2026 10:00 AM (MYT) if not set
+    const releaseDate = result ? result.value : "2026-10-10T10:00:00+08:00";
+    return c.json({ releaseDate });
+  } catch (error) {
+    console.error("IFR Get Cert Status error:", error);
+    return c.json({ error: "Ralat dalaman pelayan." }, 500);
+  }
+});
+
+router.post("/admin/cert-status", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (authHeader !== "Bearer IFR2026") {
+    return c.json({ error: "Akses ditolak. Passcode tidak sah." }, 401);
+  }
+
+  try {
+    const { releaseDate } = await c.req.json();
+    if (!releaseDate) {
+      return c.json({ error: "Tarikh pelepasan diperlukan." }, 400);
+    }
+
+    const nowStr = new Date().toISOString();
+    await c.env.DB.prepare(
+      `INSERT INTO system_settings (key, value, updated_at) 
+       VALUES ('ifr_cert_release_date', ?, ?) 
+       ON CONFLICT(key) DO UPDATE SET 
+         value = excluded.value, 
+         updated_at = excluded.updated_at`
+    ).bind(releaseDate, nowStr).run();
+
+    return c.json({ success: true, message: "Tarikh sijil berjaya dikemas kini." });
+  } catch (error) {
+    console.error("IFR Set Cert Status error:", error);
+    return c.json({ error: "Ralat dalaman pelayan." }, 500);
+  }
+});
+
 export default router;
