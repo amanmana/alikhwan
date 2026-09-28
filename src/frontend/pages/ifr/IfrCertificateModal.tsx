@@ -61,7 +61,15 @@ export default function IfrCertificateModal({ isOpen, onClose }: IfrCertificateM
       ctx.drawImage(img, 0, 0);
 
       // Setup text style
-      ctx.font = "bold 60px Arial";
+      let fontSize = 60;
+      ctx.font = `bold ${fontSize}px Arial`;
+      
+      // Auto-scale font size if name is too long (max width 80% of canvas)
+      const maxWidth = canvas.width * 0.8;
+      while (ctx.measureText(name.toUpperCase()).width > maxWidth && fontSize > 20) {
+        fontSize -= 2;
+        ctx.font = `bold ${fontSize}px Arial`;
+      }
       ctx.fillStyle = "#0A192F";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
