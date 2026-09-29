@@ -19,6 +19,7 @@ export default function IfrOrganizerDashboard() {
   const [autoCloseDate, setAutoCloseDate] = useState("");
   const [autoCloseTime, setAutoCloseTime] = useState("");
   const [updatingAutoClose, setUpdatingAutoClose] = useState(false);
+  const [activeTab, setActiveTab] = useState<"peserta" | "tetapan">("peserta");
 
   const fetchData = async (code: string) => {
     setLoading(true);
@@ -311,7 +312,28 @@ export default function IfrOrganizerDashboard() {
           </button>
         </div>
 
-        {/* Status Control */}
+
+        {/* Tabs */}
+        <div className="flex border-b border-slate-200 mb-6">
+          <button
+            className={`px-6 py-3 font-medium text-sm transition-colors relative ${activeTab === 'peserta' ? 'text-[#8cc63f]' : 'text-slate-500 hover:text-slate-700'}`}
+            onClick={() => setActiveTab('peserta')}
+          >
+            Senarai Peserta
+            {activeTab === 'peserta' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#8cc63f]" />}
+          </button>
+          <button
+            className={`px-6 py-3 font-medium text-sm transition-colors relative ${activeTab === 'tetapan' ? 'text-[#8cc63f]' : 'text-slate-500 hover:text-slate-700'}`}
+            onClick={() => setActiveTab('tetapan')}
+          >
+            Tetapan Sistem
+            {activeTab === 'tetapan' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#8cc63f]" />}
+          </button>
+        </div>
+
+        {activeTab === 'tetapan' && (
+          <>
+            {/* Status Control */}
         <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8">
           <h2 className="text-xl font-bold text-slate-900 mb-4">Kawalan Status Acara</h2>
           <div className="flex flex-col md:flex-row gap-4">
@@ -402,7 +424,11 @@ export default function IfrOrganizerDashboard() {
             Sijil hanya boleh dimuat turun oleh peserta selepas tarikh dan waktu yang ditetapkan di atas.
           </p>
         </div>
+          </>
+        )}
 
+        {activeTab === 'peserta' && (
+          <>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200 flex items-center">
             <div className="bg-blue-100 p-4 rounded-lg mr-4">
@@ -517,6 +543,8 @@ export default function IfrOrganizerDashboard() {
             </table>
           </div>
         </div>
+          </>
+        )}
       </div>
 
       {/* Receipt Modal */}
