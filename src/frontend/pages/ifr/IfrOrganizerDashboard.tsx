@@ -16,6 +16,9 @@ export default function IfrOrganizerDashboard() {
   const [certReleaseDate, setCertReleaseDate] = useState("2026-10-10");
   const [certReleaseTime, setCertReleaseTime] = useState("10:00");
   const [updatingCert, setUpdatingCert] = useState(false);
+  const [autoCloseDate, setAutoCloseDate] = useState("");
+  const [autoCloseTime, setAutoCloseTime] = useState("");
+  const [updatingAutoClose, setUpdatingAutoClose] = useState(false);
 
   const fetchData = async (code: string) => {
     setLoading(true);
@@ -39,6 +42,16 @@ export default function IfrOrganizerDashboard() {
           if (statusRes.ok) {
             const statusData = await statusRes.json();
             setEventStatus(statusData.status || "open");
+            if (statusData.autoCloseDate) {
+              const d = new Date(statusData.autoCloseDate);
+              const yyyy = d.getFullYear();
+              const mm = String(d.getMonth() + 1).padStart(2, '0');
+              const dd = String(d.getDate()).padStart(2, '0');
+              const hh = String(d.getHours()).padStart(2, '0');
+              const min = String(d.getMinutes()).padStart(2, '0');
+              setAutoCloseDate(`${yyyy}-${mm}-${dd}`);
+              setAutoCloseTime(`${hh}:${min}`);
+            }
           }
         } catch (e) {}
 
@@ -81,6 +94,36 @@ export default function IfrOrganizerDashboard() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     await fetchData(passcode);
+  };
+
+  const handleAutoCloseChange = async () => {
+    setUpdatingAutoClose(true);
+    try {
+      let dateTimeStr = "";
+      if (autoCloseDate && autoCloseTime) {
+        dateTimeStr = `${autoCloseDate}T${autoCloseTime}:00+08:00`;
+      }
+      
+      const res = await fetch("/api/ifr/admin/auto-close-date", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${passcode}`,
+        },
+        body: JSON.stringify({ closeDate: dateTimeStr }),
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        alert("Tetapan tutup pendaftaran automatik berjaya dikemas kini.");
+      } else {
+        alert(data.error || "Gagal mengemas kini tetapan automatik.");
+      }
+    } catch (e) {
+      alert("Ralat sistem.");
+    } finally {
+      setUpdatingAutoClose(false);
+    }
   };
 
   const handleCertDateChange = async () => {
@@ -289,6 +332,40 @@ export default function IfrOrganizerDashboard() {
             {eventStatus === 'closed_registration' && "Pendaftaran ditutup. Borang akan disembunyikan pada pandangan awam."}
             {eventStatus === 'event_ended' && "Acara ditutup sepenuhnya dengan mesej penghargaan."}
           </p>
+          
+          <div className="mt-6 pt-6 border-t border-slate-100">
+            <h3 className="text-md font-bold text-slate-800 mb-3">Tutup Pendaftaran Automatik (Pilihan)</h3>
+            <div className="flex flex-col md:flex-row gap-4 items-end">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tarikh</label>
+                <input
+                  type="date"
+                  value={autoCloseDate}
+                  onChange={(e) => setAutoCloseDate(e.target.value)}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#8cc63f] min-w-[200px]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Masa</label>
+                <input
+                  type="time"
+                  value={autoCloseTime}
+                  onChange={(e) => setAutoCloseTime(e.target.value)}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-4 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#8cc63f] min-w-[120px]"
+                />
+              </div>
+              <button
+                onClick={handleAutoCloseChange}
+                disabled={updatingAutoClose}
+                className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-lg font-medium transition-colors h-[42px] disabled:opacity-50"
+              >
+                {updatingAutoClose ? "Menyimpan..." : "Simpan Tetapan"}
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 mt-3">
+              Kosongkan tarikh jika anda mahu mengawal status secara manual sahaja.
+            </p>
+          </div>
         </div>
 
         {/* Certificate Control */}

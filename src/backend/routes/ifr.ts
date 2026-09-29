@@ -32,6 +32,30 @@ router.post("/register", async (c) => {
       return c.json({ error: "Sila lengkapkan semua maklumat." }, 400);
     }
 
+    // Verify registration is still open
+    const statusResults = await c.env.DB.prepare(
+      "SELECT key, value FROM system_settings WHERE key IN ('ifr_status', 'ifr_auto_close_date')"
+    ).all();
+    let currentStatus = "open";
+    let autoCloseDate = null;
+    if (statusResults.results) {
+      for (const row of statusResults.results) {
+        if (row.key === "ifr_status") currentStatus = row.value as string;
+        if (row.key === "ifr_auto_close_date") autoCloseDate = row.value as string;
+      }
+    }
+
+    if (currentStatus !== "open") {
+      return c.json({ error: "Pendaftaran telah ditutup." }, 403);
+    }
+
+    if (autoCloseDate) {
+      const closeTime = new Date(autoCloseDate).getTime();
+      if (new Date().getTime() >= closeTime) {
+        return c.json({ error: "Pendaftaran telah tamat tempoh." }, 403);
+      }
+    }
+
     const { success } = await c.env.DB.prepare(
       `INSERT INTO ifr_participants (
         id, name, ic_number, phone, category, address, shirt_size, emergency_contact_phone, receipt_data
@@ -153,13 +177,30 @@ router.post("/admin/participants/:id/claim", async (c) => {
 
 router.get("/status", async (c) => {
   try {
-    const result = await c.env.DB.prepare(
-      "SELECT value FROM system_settings WHERE key = 'ifr_status'"
-    ).first<any>();
+    const results = await c.env.DB.prepare(
+      "SELECT key, value FROM system_settings WHERE key IN ('ifr_status', 'ifr_auto_close_date')"
+    ).all();
     
-    // Default to 'open' if not set
-    const status = result ? result.value : "open";
-    return c.json({ status });
+    let status = "open";
+    let autoCloseDate = null;
+
+    if (results.results) {
+      for (const row of results.results) {
+        if (row.key === "ifr_status") status = row.value as string;
+        if (row.key === "ifr_auto_close_date") autoCloseDate = row.value as string;
+      }
+    }
+    
+    // Server-side check: override to closed if time passed
+    if (autoCloseDate && status === "open") {
+      const closeTime = new Date(autoCloseDate).getTime();
+      const nowTime = new Date().getTime();
+      if (nowTime >= closeTime) {
+        status = "closed_registration";
+      }
+    }
+
+    return c.json({ status, autoCloseDate });
   } catch (error) {
     console.error("IFR Get Status error:", error);
     return c.json({ error: "Ralat dalaman pelayan." }, 500);
@@ -233,6 +274,38 @@ router.post("/admin/cert-status", async (c) => {
     return c.json({ success: true, message: "Tarikh sijil berjaya dikemas kini." });
   } catch (error) {
     console.error("IFR Set Cert Status error:", error);
+    return c.json({ error: "Ralat dalaman pelayan." }, 500);
+  }
+});
+
+router.post("/admin/auto-close-date", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (authHeader !== "Bearer IFR2026") {
+    return c.json({ error: "Akses ditolak. Passcode tidak sah." }, 401);
+  }
+
+  try {
+    const { closeDate } = await c.req.json();
+
+    const nowStr = new Date().toISOString();
+    if (!closeDate) {
+      // Clear it
+      await c.env.DB.prepare(
+        "DELETE FROM system_settings WHERE key = 'ifr_auto_close_date'"
+      ).run();
+    } else {
+      await c.env.DB.prepare(
+        `INSERT INTO system_settings (key, value, updated_at) 
+         VALUES ('ifr_auto_close_date', ?, ?) 
+         ON CONFLICT(key) DO UPDATE SET 
+           value = excluded.value, 
+           updated_at = excluded.updated_at`
+      ).bind(closeDate, nowStr).run();
+    }
+
+    return c.json({ success: true, message: "Tarikh auto-close berjaya dikemas kini." });
+  } catch (error) {
+    console.error("IFR Set Auto Close Date error:", error);
     return c.json({ error: "Ralat dalaman pelayan." }, 500);
   }
 });
