@@ -577,7 +577,10 @@ export default function IfrRegistration() {
                      ) : activeTab === 'entitlements' ? (
                        <img src="/barangan_peserta.webp" alt="Barangan Peserta" className="w-full h-auto rounded-xl shadow-sm border border-slate-100" />
                      ) : activeTab === 'prizes' ? (
-                       <img src="/hadiah.webp" alt="Hadiah" className="w-full h-auto rounded-xl shadow-sm border border-slate-100" />
+                       <div className="flex flex-col gap-6">
+                         <img src="/hadiah.webp" alt="Hadiah" className="w-full h-auto rounded-xl shadow-sm border border-slate-100" />
+                         <img src="/cabutanbertuah.webp" alt="Cabutan Bertuah" className="w-full h-auto rounded-xl shadow-sm border border-slate-100" />
+                       </div>
                      ) : activeTab === 'course' ? (
                        <img src="/map.png" alt="Laluan Larian" className="w-full h-auto rounded-xl shadow-sm border border-slate-100" />
                      ) : activeTab === 'tnc' ? (
