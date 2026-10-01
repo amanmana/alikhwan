@@ -219,6 +219,12 @@ export default function IfrOrganizerDashboard() {
 
   const handleDownloadCSV = () => {
     if (filteredParticipants.length === 0) return;
+    
+    const keyword = prompt("Sila masukkan kata laluan (Magic Keyword) untuk memuat turun semua data sulit peserta:");
+    if (keyword !== "durian9247") {
+      alert("Kata laluan salah. Muat turun dibatalkan.");
+      return;
+    }
 
     const headers = ["No.", "Nama", "No IC", "No Telefon", "Kategori", "Saiz Baju", "Alamat Semasa", "No Tel Waris (Kecemasan)", "Tarikh Daftar", "Status Kit"];
     const csvRows = [headers.join(",")];
