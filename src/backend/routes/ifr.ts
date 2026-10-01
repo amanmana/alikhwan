@@ -6,31 +6,6 @@ const router = new Hono<{ Bindings: Bindings }>();
 router.post("/register", async (c) => {
   try {
     const data = await c.req.json();
-    const {
-      id,
-      name,
-      ic_number,
-      phone,
-      category,
-      address,
-      shirt_size,
-      emergency_contact_phone,
-      receipt_data,
-    } = data;
-
-    if (
-      !id ||
-      !name ||
-      !ic_number ||
-      !phone ||
-      !category ||
-      !address ||
-      !shirt_size ||
-      !emergency_contact_phone ||
-      !receipt_data
-    ) {
-      return c.json({ error: "Sila lengkapkan semua maklumat." }, 400);
-    }
 
     // Verify registration is still open
     const statusResults = await c.env.DB.prepare(
@@ -55,30 +30,61 @@ router.post("/register", async (c) => {
         return c.json({ error: "Pendaftaran telah tamat tempoh." }, 403);
       }
     }
+    if (data.type === "group") {
+      const { groupId, participants, receipt_data } = data;
+      if (!groupId || !participants || !participants.length || !receipt_data) {
+        return c.json({ error: "Maklumat kumpulan tidak lengkap." }, 400);
+      }
 
-    const { success } = await c.env.DB.prepare(
-      `INSERT INTO ifr_participants (
-        id, name, ic_number, phone, category, address, shirt_size, emergency_contact_phone, receipt_data
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-      .bind(
-        id,
-        name,
-        ic_number,
-        phone,
-        category,
-        address,
-        shirt_size,
-        emergency_contact_phone,
-        receipt_data
-      )
-      .run();
+      // 1. Insert into ifr_receipts
+      const { success: receiptSuccess } = await c.env.DB.prepare(
+        "INSERT INTO ifr_receipts (group_id, receipt_data) VALUES (?, ?)"
+      ).bind(groupId, receipt_data).run();
 
-    if (!success) {
-      return c.json({ error: "Gagal menyimpan pendaftaran." }, 500);
+      if (!receiptSuccess) {
+        return c.json({ error: "Gagal memuat naik resit kumpulan." }, 500);
+      }
+
+      // 2. Loop and insert participants
+      const stmt = c.env.DB.prepare(
+        `INSERT INTO ifr_participants (
+          id, name, ic_number, phone, category, address, shirt_size, emergency_contact_phone, receipt_data
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      );
+
+      const batchStatements = participants.map((p: any) => 
+        stmt.bind(
+          p.id, p.name, p.ic_number, p.phone, p.category, p.address, p.shirt_size, p.emergency_contact_phone,
+          `GROUP:${groupId}`
+        )
+      );
+
+      await c.env.DB.batch(batchStatements);
+
+      return c.json({ success: true, message: "Pendaftaran kumpulan berjaya disimpan." });
+
+    } else {
+      // Individual logic
+      const {
+        id, name, ic_number, phone, category, address, shirt_size, emergency_contact_phone, receipt_data,
+      } = data;
+
+      if (!id || !name || !ic_number || !phone || !category || !address || !shirt_size || !emergency_contact_phone || !receipt_data) {
+        return c.json({ error: "Sila lengkapkan semua maklumat." }, 400);
+      }
+
+      const { success } = await c.env.DB.prepare(
+        `INSERT INTO ifr_participants (
+          id, name, ic_number, phone, category, address, shirt_size, emergency_contact_phone, receipt_data
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(id, name, ic_number, phone, category, address, shirt_size, emergency_contact_phone, receipt_data).run();
+
+      if (!success) {
+        return c.json({ error: "Gagal menyimpan pendaftaran." }, 500);
+      }
+
+      return c.json({ success: true, message: "Pendaftaran berjaya disimpan." });
     }
-
-    return c.json({ success: true, message: "Pendaftaran berjaya disimpan." });
   } catch (error) {
     console.error("IFR Registration error:", error);
     return c.json({ error: "Ralat dalaman pelayan." }, 500);
@@ -127,6 +133,28 @@ router.get("/check-receipt", async (c) => {
   } catch (error) {
     console.error("IFR Check Receipt error:", error);
     return c.json({ error: "Ralat dalaman pelayan." }, 500);
+  }
+});
+
+router.get("/admin/receipt/:groupId", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || authHeader !== `Bearer ${c.env.ADMIN_MAGIC_KEYWORD}`) {
+      return c.json({ error: "Sesi tidak sah" }, 401);
+    }
+
+    const groupId = c.req.param("groupId");
+    const result = await c.env.DB.prepare(
+      "SELECT receipt_data FROM ifr_receipts WHERE group_id = ?"
+    ).bind(groupId).first();
+
+    if (!result) {
+      return c.json({ error: "Resit tidak dijumpai." }, 404);
+    }
+
+    return c.json({ receipt_data: result.receipt_data });
+  } catch (error) {
+    return c.json({ error: "Ralat pelayan." }, 500);
   }
 });
 

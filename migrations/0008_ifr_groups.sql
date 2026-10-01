@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS ifr_receipts (
+  group_id TEXT PRIMARY KEY,
+  receipt_data TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

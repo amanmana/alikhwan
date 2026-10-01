@@ -21,6 +21,28 @@ export default function IfrOrganizerDashboard() {
   const [updatingAutoClose, setUpdatingAutoClose] = useState(false);
   const [activeTab, setActiveTab] = useState<"peserta" | "tetapan">("peserta");
 
+  const handleViewReceipt = async (receiptData: string) => {
+    if (!receiptData.startsWith("GROUP:")) {
+      setSelectedReceipt(receiptData);
+      return;
+    }
+    const groupId = receiptData.replace("GROUP:", "");
+    try {
+      const authCode = localStorage.getItem("ifr_admin_code") || "IFR2026";
+      const res = await fetch(`/api/ifr/admin/receipt/${groupId}`, {
+        headers: { Authorization: `Bearer ${authCode}` }
+      });
+      if (!res.ok) {
+        alert("Gagal memuat turun resit kumpulan.");
+        return;
+      }
+      const data = await res.json();
+      setSelectedReceipt(data.receipt_data);
+    } catch (e) {
+      alert("Ralat pelayan semasa memuat turun resit.");
+    }
+  };
+
   const fetchData = async (code: string) => {
     setLoading(true);
     setError("");
@@ -556,7 +578,7 @@ export default function IfrOrganizerDashboard() {
                       <td className="p-4 text-center">
                         {p.receipt_data ? (
                           <button
-                            onClick={() => setSelectedReceipt(p.receipt_data)}
+                            onClick={() => handleViewReceipt(p.receipt_data)}
                             className="text-[#8cc63f] hover:text-[#7abd36] p-2 rounded-full hover:bg-slate-100 transition-colors inline-block"
                             title="Lihat Resit"
                           >
