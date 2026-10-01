@@ -253,8 +253,8 @@ export default function IfrOrganizerDashboard() {
   const handleDownloadPrinter = () => {
     if (filteredParticipants.length === 0) return;
 
-    // Only Nama, Saiz Baju, Alamat Semasa
-    const headers = ["No.", "Nama", "Saiz Baju", "Alamat Semasa"];
+    // Format Khas Pencetak
+    const headers = ["No.", "Nama", "Kategori", "Saiz Baju", "Alamat Semasa"];
     const csvRows = [headers.join(",")];
 
     for (let i = 0; i < filteredParticipants.length; i++) {
@@ -262,6 +262,7 @@ export default function IfrOrganizerDashboard() {
       const row = [
         `"${i + 1}"`,
         `"${p.name}"`,
+        `"${p.category}"`,
         `"${p.shirt_size}"`,
         `"${(p.address || "").replace(/"/g, '""')}"`
       ];
