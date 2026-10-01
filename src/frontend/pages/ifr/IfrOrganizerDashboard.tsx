@@ -250,6 +250,35 @@ export default function IfrOrganizerDashboard() {
     document.body.removeChild(link);
   };
 
+  const handleDownloadPrinter = () => {
+    if (filteredParticipants.length === 0) return;
+
+    // Only Nama, Saiz Baju, Alamat Semasa
+    const headers = ["No.", "Nama", "Saiz Baju", "Alamat Semasa"];
+    const csvRows = [headers.join(",")];
+
+    for (let i = 0; i < filteredParticipants.length; i++) {
+      const p = filteredParticipants[i];
+      const row = [
+        `"${i + 1}"`,
+        `"${p.name}"`,
+        `"${p.shirt_size}"`,
+        `"${(p.address || "").replace(/"/g, '""')}"`
+      ];
+      csvRows.push(row.join(","));
+    }
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    // User requested .xls, a .csv file is fully supported by Excel.
+    link.setAttribute("download", `Senarai_Pencetak_IFR_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4">
@@ -459,10 +488,19 @@ export default function IfrOrganizerDashboard() {
                 onClick={handleDownloadCSV}
                 disabled={filteredParticipants.length === 0}
                 className="flex items-center gap-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Muat Turun CSV"
+                title="Muat Turun Semua Data (CSV)"
               >
                 <Download className="w-4 h-4" />
-                <span>Muat Turun</span>
+                <span>Semua Data</span>
+              </button>
+              <button 
+                onClick={handleDownloadPrinter}
+                disabled={filteredParticipants.length === 0}
+                className="flex items-center gap-2 bg-[#8cc63f] hover:bg-[#7ab135] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Muat Turun Khas Untuk Pencetak Baju (Excel/CSV)"
+              >
+                <Download className="w-4 h-4" />
+                <span>Untuk Pencetak</span>
               </button>
             </div>
           </div>
