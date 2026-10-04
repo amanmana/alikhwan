@@ -95,7 +95,7 @@ router.get("/participant/:id", async (c) => {
   try {
     const { id } = c.req.param();
     const result = await c.env.DB.prepare(
-      "SELECT name, category, shirt_size, kit_claimed, created_at FROM ifr_participants WHERE id = ?"
+      "SELECT id, name, ic_number, category, shirt_size, kit_claimed, created_at FROM ifr_participants WHERE id = ?"
     )
       .bind(id)
       .first();

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { CheckCircle, Printer, ArrowLeft } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { isRefundEligibleIc } from "../../utils/ifrRefund";
 
 export default function IfrReceipt() {
   const { id } = useParams();
@@ -12,7 +13,6 @@ export default function IfrReceipt() {
 
   useEffect(() => {
     if (!participant && id) {
-      // Fetch participant if not in state
       fetch(`/api/ifr/participant/${id}`)
         .then((res) => res.json())
         .then((data) => {
@@ -51,6 +51,8 @@ export default function IfrReceipt() {
     );
   }
 
+  const isRefundEligible = isRefundEligibleIc(participant.ic_number || participant.ic);
+
   // URL for the QR code to point to the participant info page (for organizer to scan)
   const qrUrl = `${window.location.origin}/ifr/peserta/${id}`;
 
@@ -75,15 +77,23 @@ export default function IfrReceipt() {
 
       <div className="max-w-md mx-auto bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-200 print:shadow-none print:border-none print:max-w-full">
         {/* Header */}
-        <div className="bg-[#0A192F] px-8 py-8 text-center text-white relative">
+        <div className={`${isRefundEligible ? 'bg-[#980002]' : 'bg-[#0A192F]'} px-8 py-8 text-center text-white relative transition-colors`}>
           <div className="absolute top-0 right-0 p-4 opacity-10">
              <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
           </div>
-          <div className="w-16 h-16 bg-[#8cc63f] rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_15px_rgba(140,198,63,0.5)]">
-            <CheckCircle className="w-10 h-10 text-[#0A192F]" />
+          <div className={`w-16 h-16 ${isRefundEligible ? 'bg-white text-[#980002]' : 'bg-[#8cc63f] text-[#0A192F]'} rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg`}>
+            <CheckCircle className="w-10 h-10" />
           </div>
           <h1 className="text-2xl font-black uppercase tracking-wider mb-1">Pendaftaran Berjaya!</h1>
-          <p className="text-slate-300 font-medium text-sm">Ikhwan Fun Run 3.0</p>
+          <p className="text-slate-200 font-medium text-sm">Ikhwan Fun Run 3.0</p>
+
+          {isRefundEligible && (
+            <div className="mt-4 bg-white/15 backdrop-blur-md border border-white/30 rounded-2xl p-3 text-center shadow-md">
+              <p className="font-extrabold text-yellow-300 text-sm sm:text-base leading-snug">
+                Sila tuntut wang RM20 dari penganjur semasa kutipan baju
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Body */}

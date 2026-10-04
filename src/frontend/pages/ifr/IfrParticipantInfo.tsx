@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { User, Tag, Shirt, Clock, AlertCircle, CheckCircle, PackageCheck } from "lucide-react";
+import { User, Tag, Shirt, Clock, AlertCircle, CheckCircle, PackageCheck, DollarSign } from "lucide-react";
+import { isRefundEligibleIc } from "../../utils/ifrRefund";
 
 export default function IfrParticipantInfo() {
   const { id } = useParams();
@@ -89,6 +90,8 @@ export default function IfrParticipantInfo() {
     );
   }
 
+  const isRefundEligible = isRefundEligibleIc(participant.ic_number || participant.ic);
+
   const parseDate = (dateStr: string) => {
     if (!dateStr) return new Date();
     const isoStr = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
@@ -111,6 +114,18 @@ export default function IfrParticipantInfo() {
           <h1 className="text-3xl font-black text-[#8cc63f] uppercase tracking-wider mb-2">Semakan Peserta</h1>
           <p className="text-slate-400 font-medium">Ikhwan Fun Run 3.0</p>
         </div>
+
+        {isRefundEligible && (
+          <div className="bg-[#980002] border-2 border-red-400 text-white rounded-2xl p-4 mb-6 text-center shadow-xl">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <DollarSign className="w-6 h-6 text-yellow-300" />
+              <span className="font-black text-lg text-yellow-300 uppercase tracking-wide">TUNTUTAN REFUND RM20.00</span>
+            </div>
+            <p className="font-extrabold text-white text-base">
+              Sila tuntut wang RM20 dari penganjur semasa kutipan baju.
+            </p>
+          </div>
+        )}
 
         <div className="bg-slate-800 rounded-3xl overflow-hidden shadow-2xl border border-slate-700">
           <div className="p-8 space-y-6">
