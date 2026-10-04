@@ -309,60 +309,51 @@ export default function IfrOrganizerDashboard() {
   };
 
   const handleDownloadRefundCSV = () => {
-    const refundIcSet = new Set([
-      "830911-01-5389",
-      "170911-10-1323",
-      "140718-10-1527",
-      "130305-10-0578",
-      "731025-03-5493",
-      "030709-14-0471",
-      "130222-14-0873",
-      "550526-11-5037",
-      "120611-10-0972",
-      "090506-10-1098",
-      "061126-10-0306",
-      "770604-05-5506",
-      "091223-14-1377",
-      "100808-03-0420",
-      "760420-09-5045",
-      "760608-08-5922",
-      "739628-12-5613",
-    ]);
-
-    const refundParticipants = participants.filter((p) => {
-      const cleanIc = p.ic_number.replace(/\D/g, "");
-      const isInSet = Array.from(refundIcSet).some((ic) => ic.replace(/\D/g, "") === cleanIc);
-      const isEarly = p.created_at < "2026-09-19 20:00:00";
-      return isInSet || isEarly;
-    });
-
-    if (refundParticipants.length === 0) {
-      alert("Tiada rekod peserta refund ditemui.");
-      return;
-    }
+    const refundListStatic = [
+      { name: "Mohd Fadzlan Bin Kadir", ic: "830911-01-5389", category: "Dewasa" },
+      { name: "Muhammad Iyas Bin Mohd Fadzlan", ic: "170911-10-1323", category: "Kanak-Kanak" },
+      { name: "Muhammad Bilal Bin Mohd Fadzlan", ic: "140718-10-1527", category: "Kanak-Kanak" },
+      { name: "Hana Nur Imanina Binti Mohd Fadzlan", ic: "130305-10-0578", category: "Belia" },
+      { name: "Marilah binti Sulaiman", ic: "731025-03-5493", category: "Dewasa" },
+      { name: "Muhammad Amerhakim bin Sukry", ic: "030709-14-0471", category: "Belia" },
+      { name: "Muhamad Aiman Haziq bin Sukry", ic: "130222-14-0873", category: "Belia" },
+      { name: "Kadir Bin Muda", ic: "550526-11-5037", category: "Veteran" },
+      { name: "Airis Raihana Binti Ahmad Hamili", ic: "120611-10-0972", category: "Belia" },
+      { name: "ADRIANA QAISARA BINTI AHMAD HAMILI", ic: "090506-10-1098", category: "Belia" },
+      { name: "Alesya Umairah Binti Ahmad Hamili", ic: "061126-10-0306", category: "Belia" },
+      { name: "HASINAH MARIAM HABIBU RAHMAN", ic: "770604-05-5506", category: "Dewasa" },
+      { name: "MOHAMED FAREQ BIN MOHAMED SUBUHAN", ic: "091223-14-1377", category: "Belia" },
+      { name: "NUR AIN SOFEA BINTI NURARIFFUDDIN", ic: "100808-03-0420", category: "Dewasa" },
+      { name: "Syarazi Kamarudi", ic: "760420-09-5045", category: "Dewasa" },
+      { name: "Noor Aida Idris", ic: "760608-08-5922", category: "Dewasa" },
+      { name: "Hamsah Bin Abustang", ic: "739628-12-5613", category: "Veteran" },
+    ];
 
     const headers = ["No.", "Nama Peserta", "No. IC", "Kategori", "Jumlah Refund"];
     const csvRows = [headers.join(",")];
 
-    for (let i = 0; i < refundParticipants.length; i++) {
-      const p = refundParticipants[i];
-      const rawIc = (p.ic_number || "").trim();
+    refundListStatic.forEach((item, index) => {
+      const cleanTargetIc = item.ic.replace(/\D/g, "");
+      const dbMatch = participants.find(
+        (p) => (p.ic_number || "").replace(/\D/g, "") === cleanTargetIc
+      );
+
+      const name = dbMatch ? dbMatch.name : item.name;
+      const category = dbMatch ? dbMatch.category : item.category;
+      const rawIc = dbMatch ? dbMatch.ic_number : item.ic;
       const digits = rawIc.replace(/\D/g, "");
-      let maskedIc = rawIc;
-      if (digits.length >= 4) {
-        const last4 = digits.slice(-4);
-        maskedIc = `****-**-${last4}`;
-      }
+      const last4 = digits.length >= 4 ? digits.slice(-4) : "0000";
+      const maskedIc = `****-**-${last4}`;
 
       const row = [
-        `"${i + 1}"`,
-        `"${p.name}"`,
+        `"${index + 1}"`,
+        `"${name}"`,
         `"${maskedIc}"`,
-        `"${p.category}"`,
+        `"${category}"`,
         `"RM 20.00"`
       ];
       csvRows.push(row.join(","));
-    }
+    });
 
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.join("\n");
     const encodedUri = encodeURI(csvContent);
