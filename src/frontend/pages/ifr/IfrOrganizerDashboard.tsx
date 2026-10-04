@@ -308,6 +308,72 @@ export default function IfrOrganizerDashboard() {
     document.body.removeChild(link);
   };
 
+  const handleDownloadRefundCSV = () => {
+    const refundIcSet = new Set([
+      "830911-01-5389",
+      "170911-10-1323",
+      "140718-10-1527",
+      "130305-10-0578",
+      "731025-03-5493",
+      "030709-14-0471",
+      "130222-14-0873",
+      "550526-11-5037",
+      "120611-10-0972",
+      "090506-10-1098",
+      "061126-10-0306",
+      "770604-05-5506",
+      "091223-14-1377",
+      "100808-03-0420",
+      "760420-09-5045",
+      "760608-08-5922",
+      "739628-12-5613",
+    ]);
+
+    const refundParticipants = participants.filter((p) => {
+      const cleanIc = p.ic_number.replace(/\D/g, "");
+      const isInSet = Array.from(refundIcSet).some((ic) => ic.replace(/\D/g, "") === cleanIc);
+      const isEarly = p.created_at < "2026-09-19 20:00:00";
+      return isInSet || isEarly;
+    });
+
+    if (refundParticipants.length === 0) {
+      alert("Tiada rekod peserta refund ditemui.");
+      return;
+    }
+
+    const headers = ["No.", "Nama Peserta", "No. IC", "Kategori", "Jumlah Refund"];
+    const csvRows = [headers.join(",")];
+
+    for (let i = 0; i < refundParticipants.length; i++) {
+      const p = refundParticipants[i];
+      const rawIc = (p.ic_number || "").trim();
+      const digits = rawIc.replace(/\D/g, "");
+      let maskedIc = rawIc;
+      if (digits.length >= 4) {
+        const last4 = digits.slice(-4);
+        maskedIc = `****-**-${last4}`;
+      }
+
+      const row = [
+        `"${i + 1}"`,
+        `"${p.name}"`,
+        `"${maskedIc}"`,
+        `"${p.category}"`,
+        `"RM 20.00"`
+      ];
+      csvRows.push(row.join(","));
+    }
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Senarai_Refund_RM20_IFR_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4">
@@ -530,6 +596,15 @@ export default function IfrOrganizerDashboard() {
               >
                 <Download className="w-4 h-4" />
                 <span>Untuk Pencetak</span>
+              </button>
+              <button 
+                onClick={handleDownloadRefundCSV}
+                disabled={participants.length === 0}
+                className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Muat Turun Senarai Refund (RM20) CSV"
+              >
+                <Download className="w-4 h-4" />
+                <span>Senarai Refund (RM20)</span>
               </button>
             </div>
           </div>
