@@ -59,7 +59,7 @@ const CountdownTimer = () => {
 };
 
 const TABS = [
-  { id: 'borang', label: 'Borang Penyertaan' },
+  { id: 'borang', label: 'Race Kit' },
   { id: 'fees', label: 'Yuran Penyertaan' },
   { id: 'entitlements', label: 'Barangan Peserta' },
   { id: 'prizes', label: 'Hadiah' },
@@ -379,16 +379,25 @@ export default function IfrRegistration() {
                 <div className="bg-white rounded-2xl p-6 md:p-8 shadow-xl border border-slate-200">
                   <div className="mb-6 border-b border-slate-200 pb-4">
             <h2 className="text-2xl font-bold text-slate-900">
-              Borang Penyertaan
+              Race Kit
             </h2>
           </div>
 
           {eventStatus === 'closed_registration' ? (
-            <div className="py-12 text-center bg-slate-50 rounded-xl border border-slate-200 mt-6">
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Penyertaan Telah Ditutup</h3>
-              <p className="text-slate-600">
-                Terima kasih atas minat anda, namun pendaftaran untuk Ikhwan Fun Run 3.0 telah pun ditutup.
-              </p>
+            <div className="space-y-6 mt-6">
+              <div className="overflow-hidden rounded-xl border border-slate-200 shadow-md">
+                <img 
+                  src="/racekit.webp" 
+                  alt="Race Kit Ikhwan Fun Run 3.0" 
+                  className="w-full h-auto object-cover"
+                />
+              </div>
+              <div className="py-8 text-center bg-slate-50 rounded-xl border border-slate-200">
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Penyertaan Telah Ditutup</h3>
+                <p className="text-slate-600">
+                  Terima kasih atas minat anda, namun pendaftaran untuk Ikhwan Fun Run 3.0 telah pun ditutup.
+                </p>
+              </div>
             </div>
           ) : (
             <>
