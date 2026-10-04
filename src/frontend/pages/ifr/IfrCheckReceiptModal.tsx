@@ -26,7 +26,7 @@ export default function IfrCheckReceiptModal({ isOpen, onClose }: IfrCheckReceip
     
     const clean = icNumber.replace(/\D/g, "");
     if (clean.length < 5 && icNumber.trim().length < 5) {
-      setError("Sila masukkan sekurang-kurangnya 5 aksara No. Kad Pengenalan atau No. Telefon.");
+      setError("Sila masukkan No. Kad Pengenalan anda.");
       return;
     }
 
@@ -65,7 +65,7 @@ export default function IfrCheckReceiptModal({ isOpen, onClose }: IfrCheckReceip
 
         <div className="p-6">
           <p className="text-slate-600 mb-6 text-sm">
-            Masukkan No. Kad Pengenalan atau No. Telefon anda untuk menyemak status pendaftaran dan mencetak semula resit / kod QR pendaftaran.
+            Masukkan No. Kad Pengenalan anda untuk menyemak status pendaftaran dan mencetak semula resit / kod QR pendaftaran.
           </p>
 
           {error && (
@@ -78,7 +78,7 @@ export default function IfrCheckReceiptModal({ isOpen, onClose }: IfrCheckReceip
           <form onSubmit={handleCheck}>
             <div className="mb-5">
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                No. Kad Pengenalan / No. Telefon
+                No. Kad Pengenalan
               </label>
               <input
                 type="text"
@@ -86,7 +86,7 @@ export default function IfrCheckReceiptModal({ isOpen, onClose }: IfrCheckReceip
                 value={icNumber}
                 onChange={handleInputChange}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#8cc63f] focus:border-transparent transition-all"
-                placeholder="Cth: 900101-10-1234 atau 0123456789"
+                placeholder="Cth: 900101-10-1234 atau 091203"
               />
             </div>
 

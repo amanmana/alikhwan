@@ -116,25 +116,24 @@ router.get("/check-receipt", async (c) => {
     const ic_number = c.req.query("ic_number");
     
     if (!ic_number) {
-      return c.json({ error: "Sila masukkan No. Kad Pengenalan atau No. Telefon." }, 400);
+      return c.json({ error: "Sila masukkan No. Kad Pengenalan." }, 400);
     }
 
     const trimmedInput = ic_number.trim();
     const cleanDigits = trimmedInput.replace(/\D/g, "");
 
-    // Search by exact IC, clean IC digits, or phone number match
+    // Search by exact IC or clean IC digits match
     const result = await c.env.DB.prepare(
       `SELECT id FROM ifr_participants 
        WHERE ic_number = ? 
           OR (length(?) > 0 AND REPLACE(REPLACE(ic_number, '-', ''), ' ', '') = ?)
-          OR (length(?) > 0 AND REPLACE(REPLACE(phone, '-', ''), ' ', '') = ?)
        LIMIT 1`
     )
-      .bind(trimmedInput, cleanDigits, cleanDigits, cleanDigits, cleanDigits)
+      .bind(trimmedInput, cleanDigits, cleanDigits)
       .first();
 
     if (!result) {
-      return c.json({ error: "Rekod pendaftaran tidak dijumpai. Sila semak semula No. IC atau No. Telefon anda." }, 404);
+      return c.json({ error: "Rekod pendaftaran tidak dijumpai. Sila semak semula No. Kad Pengenalan anda." }, 404);
     }
 
     return c.json({ participantId: result.id });
