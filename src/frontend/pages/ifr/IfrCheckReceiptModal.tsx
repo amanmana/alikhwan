@@ -16,15 +16,7 @@ export default function IfrCheckReceiptModal({ isOpen, onClose }: IfrCheckReceip
   if (!isOpen) return null;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, "");
-    if (value.length > 12) value = value.slice(0, 12);
-    
-    if (value.length > 8) {
-      value = `${value.slice(0, 6)}-${value.slice(6, 8)}-${value.slice(8)}`;
-    } else if (value.length > 6) {
-      value = `${value.slice(0, 6)}-${value.slice(6)}`;
-    }
-    
+    let value = e.target.value;
     setIcNumber(value);
   };
 
@@ -32,14 +24,15 @@ export default function IfrCheckReceiptModal({ isOpen, onClose }: IfrCheckReceip
     e.preventDefault();
     setError(null);
     
-    if (icNumber.replace(/\D/g, "").length !== 12) {
-      setError("Sila masukkan 12 digit No. Kad Pengenalan dengan betul.");
+    const clean = icNumber.replace(/\D/g, "");
+    if (clean.length < 5 && icNumber.trim().length < 5) {
+      setError("Sila masukkan sekurang-kurangnya 5 aksara No. Kad Pengenalan atau No. Telefon.");
       return;
     }
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/ifr/check-receipt?ic_number=${encodeURIComponent(icNumber)}`);
+      const response = await fetch(`/api/ifr/check-receipt?ic_number=${encodeURIComponent(icNumber.trim())}`);
       const data = await response.json();
 
       if (response.ok && data.participantId) {
@@ -72,7 +65,7 @@ export default function IfrCheckReceiptModal({ isOpen, onClose }: IfrCheckReceip
 
         <div className="p-6">
           <p className="text-slate-600 mb-6 text-sm">
-            Masukkan No. Kad Pengenalan anda untuk menyemak status pendaftaran dan mencetak semula resit / kod QR pendaftaran.
+            Masukkan No. Kad Pengenalan atau No. Telefon anda untuk menyemak status pendaftaran dan mencetak semula resit / kod QR pendaftaran.
           </p>
 
           {error && (
@@ -85,7 +78,7 @@ export default function IfrCheckReceiptModal({ isOpen, onClose }: IfrCheckReceip
           <form onSubmit={handleCheck}>
             <div className="mb-5">
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                No. Kad Pengenalan
+                No. Kad Pengenalan / No. Telefon
               </label>
               <input
                 type="text"
@@ -93,7 +86,7 @@ export default function IfrCheckReceiptModal({ isOpen, onClose }: IfrCheckReceip
                 value={icNumber}
                 onChange={handleInputChange}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#8cc63f] focus:border-transparent transition-all"
-                placeholder="Cth: 900101-10-1234"
+                placeholder="Cth: 900101-10-1234 atau 0123456789"
               />
             </div>
 
