@@ -72,6 +72,7 @@ export default function IfrRegistration() {
   const navigate = useNavigate();
   const [isCheckModalOpen, setIsCheckModalOpen] = useState(false);
   const [isCertModalOpen, setIsCertModalOpen] = useState(false);
+  const [isRaceKitModalOpen, setIsRaceKitModalOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("borang");
   const [regType, setRegType] = useState<"individu" | "kumpulan">("individu");
   const [participants, setParticipants] = useState<any[]>([{
@@ -766,6 +767,36 @@ export default function IfrRegistration() {
         </div>
       </div>
       )}
+      
+      {/* Race Kit Info Modal */}
+      {isRaceKitModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden flex flex-col shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <button 
+              onClick={() => setIsRaceKitModalOpen(false)}
+              className="absolute top-3 right-3 p-1.5 bg-black/50 hover:bg-black/80 rounded-full text-white transition-colors z-10"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+            <div className="flex flex-col">
+              <img src="/racekit.webp" alt="Info Race Kit" className="w-full h-auto" />
+              <div className="p-5 bg-white text-center">
+                <h3 className="font-bold text-slate-800 text-lg mb-2">Perhatian Peserta!</h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  Sila ambil maklum tentang tarikh dan lokasi pengambilan barangan peserta (Race Kit).
+                </p>
+                <button 
+                  onClick={() => setIsRaceKitModalOpen(false)}
+                  className="w-full py-3 bg-[#8cc63f] hover:bg-[#7ab135] text-white font-semibold rounded-xl transition-colors shadow-md"
+                >
+                  Faham & Teruskan
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <IfrCheckReceiptModal 
         isOpen={isCheckModalOpen} 
         onClose={() => setIsCheckModalOpen(false)} 
