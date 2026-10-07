@@ -20,6 +20,21 @@ export default function IfrOrganizerDashboard() {
   const [autoCloseTime, setAutoCloseTime] = useState("");
   const [updatingAutoClose, setUpdatingAutoClose] = useState(false);
   const [activeTab, setActiveTab] = useState<"peserta" | "tetapan">("peserta");
+  const [isSettingsUnlocked, setIsSettingsUnlocked] = useState(false);
+
+  const handleTabChange = (tab: "peserta" | "tetapan") => {
+    if (tab === "tetapan" && !isSettingsUnlocked) {
+      const pin = window.prompt("Masukkan Master PIN Keselamatan untuk akses Tetapan Sistem:");
+      if (pin === "9247") {
+        setIsSettingsUnlocked(true);
+        setActiveTab("tetapan");
+      } else if (pin !== null) {
+        alert("PIN salah. Akses ditolak.");
+      }
+    } else {
+      setActiveTab(tab);
+    }
+  };
 
   const handleViewReceipt = async (receiptData: string) => {
     if (!receiptData.startsWith("GROUP:")) {
@@ -432,14 +447,14 @@ export default function IfrOrganizerDashboard() {
         <div className="flex border-b border-slate-200 mb-6">
           <button
             className={`px-6 py-3 font-medium text-sm transition-colors relative ${activeTab === 'peserta' ? 'text-[#8cc63f]' : 'text-slate-500 hover:text-slate-700'}`}
-            onClick={() => setActiveTab('peserta')}
+            onClick={() => handleTabChange('peserta')}
           >
             Senarai Peserta
             {activeTab === 'peserta' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#8cc63f]" />}
           </button>
           <button
             className={`px-6 py-3 font-medium text-sm transition-colors relative ${activeTab === 'tetapan' ? 'text-[#8cc63f]' : 'text-slate-500 hover:text-slate-700'}`}
-            onClick={() => setActiveTab('tetapan')}
+            onClick={() => handleTabChange('tetapan')}
           >
             Tetapan Sistem
             {activeTab === 'tetapan' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#8cc63f]" />}
