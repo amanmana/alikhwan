@@ -20,20 +20,9 @@ export default function IfrOrganizerDashboard() {
   const [autoCloseTime, setAutoCloseTime] = useState("");
   const [updatingAutoClose, setUpdatingAutoClose] = useState(false);
   const [activeTab, setActiveTab] = useState<"peserta" | "tetapan">("peserta");
-  const [isSettingsUnlocked, setIsSettingsUnlocked] = useState(false);
 
   const handleTabChange = (tab: "peserta" | "tetapan") => {
-    if (tab === "tetapan" && !isSettingsUnlocked) {
-      const pin = window.prompt("Masukkan Master PIN Keselamatan untuk akses Tetapan Sistem:");
-      if (pin === "9247") {
-        setIsSettingsUnlocked(true);
-        setActiveTab("tetapan");
-      } else if (pin !== null) {
-        alert("PIN salah. Akses ditolak.");
-      }
-    } else {
-      setActiveTab(tab);
-    }
+    setActiveTab(tab);
   };
 
   const handleViewReceipt = async (receiptData: string) => {
