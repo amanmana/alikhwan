@@ -88,16 +88,26 @@ export default function IfrRegistration() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [eventStatus, setEventStatus] = useState<string>("open");
+  const [eventStatus, setEventStatus] = useState<string>(() => {
+    try {
+      return localStorage.getItem("ifr_event_status") || "event_ended";
+    } catch {
+      return "event_ended";
+    }
+  });
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
 
   useEffect(() => {
     fetch("/api/ifr/status")
       .then((res) => res.json())
       .then((data) => {
-        setEventStatus(data.status || "open");
+        const status = data.status || "event_ended";
+        setEventStatus(status);
+        try {
+          localStorage.setItem("ifr_event_status", status);
+        } catch {}
       })
-      .catch(() => setEventStatus("open"))
+      .catch(() => {})
       .finally(() => setIsLoadingStatus(false));
   }, []);
 
@@ -486,6 +496,11 @@ export default function IfrRegistration() {
                         Terima kasih atas minat anda, namun pendaftaran untuk Ikhwan Fun Run 3.0 telah pun ditutup.
                       </p>
                     </div>
+                  </div>
+                ) : isLoadingStatus ? (
+                  <div className="py-20 flex flex-col items-center justify-center text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8cc63f] mb-4"></div>
+                    <p className="text-slate-500 text-sm font-medium">Memuatkan maklumat acara...</p>
                   </div>
                 ) : (
             <>
