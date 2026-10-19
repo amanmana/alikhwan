@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, CreditCard, Upload, CheckCircle, AlertCircle, Search } from "lucide-react";
+import { Camera, CreditCard, Upload, CheckCircle, AlertCircle, Search, Award, Trophy, Download, Sparkles } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import IfrCheckReceiptModal from "./IfrCheckReceiptModal";
 import IfrCertificateModal from "./IfrCertificateModal";
@@ -320,87 +320,175 @@ export default function IfrRegistration() {
           
           {/* Floating Countdown Timer Overlay */}
           <div className="absolute bottom-2 left-0 right-0 flex justify-center md:right-auto md:justify-start md:bottom-6 md:left-6 z-10 w-full md:w-auto">
-            <CountdownTimer />
+            {eventStatus === 'event_ended' ? (
+              <div className="bg-[#0b101e]/95 border border-[#8cc63f] text-white rounded-[2rem] inline-flex items-center gap-2.5 px-4 py-2.5 shadow-2xl backdrop-blur-md">
+                <span className="flex h-2.5 w-2.5 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8cc63f] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#8cc63f]"></span>
+                </span>
+                <span className="text-xs md:text-sm font-bold tracking-wide text-white uppercase">
+                  🏁 Acara Selesai — Terima Kasih Semua Peserta!
+                </span>
+              </div>
+            ) : (
+              <CountdownTimer />
+            )}
           </div>
         </div>
       </div>
 
-      {eventStatus === 'event_ended' ? (
-        <div className="max-w-3xl mx-auto px-4 text-center mt-12 mb-20">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-10">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6">Acara Telah Tamat</h2>
-            <p className="text-slate-600 text-lg md:text-xl">
-              Terima kasih atas penyertaan anda! Semoga kita bertemu lagi pada acara akan datang.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 mt-8">
-          <div className="flex flex-col md:flex-row gap-5">
-          
-          {/* Left Navigation Menu */}
-          <div className="w-full md:w-52 shrink-0">
-             <div className="sticky top-8 rounded-2xl overflow-hidden shadow-xl border border-slate-200">
-                <div className="bg-[#0A192F] text-white font-bold py-3 px-4 text-center text-base">
-                  Maklumat Acara
-                </div>
-                 <div className="flex flex-col bg-white">
-                    {TABS.map(tab => (
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 mt-8">
+        <div className="flex flex-col md:flex-row gap-5">
+        
+        {/* Left Navigation Menu */}
+        <div className="w-full md:w-52 shrink-0">
+           <div className="sticky top-8 rounded-2xl overflow-hidden shadow-xl border border-slate-200">
+              <div className="bg-[#0A192F] text-white font-bold py-3 px-4 text-center text-base">
+                Maklumat Acara
+              </div>
+               <div className="flex flex-col bg-white">
+                  {TABS.map(tab => {
+                     const label = tab.id === 'borang' 
+                       ? (eventStatus === 'event_ended' ? 'Penghargaan & Sijil' : (eventStatus === 'closed_registration' ? 'Race Kit' : 'Borang Penyertaan'))
+                       : tab.label;
+                     return (
                        <button 
                           key={tab.id}
                           onClick={() => setActiveTab(tab.id)}
                           className={`py-3 px-4 text-center text-sm transition-colors border-b border-slate-100 ${activeTab === tab.id ? 'bg-[#8cc63f] font-bold text-[#0A192F]' : 'text-slate-600 hover:bg-slate-50'}`}
                        >
-                          {tab.label}
+                          {label}
                        </button>
-                    ))}
-                 </div>
-                 <div className="bg-slate-100 p-4">
-                    <button
-                      onClick={() => setIsCheckModalOpen(true)}
-                      className="w-full text-[#0A192F] bg-slate-200 hover:bg-slate-300 px-4 py-3 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center whitespace-nowrap"
-                    >
-                      <Search className="w-4 h-4 mr-2" />
-                      Resit Penyertaan
-                    </button>
-                    <button
-                      onClick={() => setIsCertModalOpen(true)}
-                      className="w-full mt-3 text-[#0A192F] bg-[#8cc63f]/20 hover:bg-[#8cc63f]/30 border border-[#8cc63f]/50 px-4 py-3 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center whitespace-nowrap"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-                      Sijil Penyertaan
-                    </button>
-                 </div>
-              </div>
-           </div>
-
-          {/* Right Content Area */}
-          <div className="w-full md:flex-1 min-w-0">
-             {activeTab === 'borang' ? (
-                <div className="bg-white rounded-2xl p-6 md:p-8 shadow-xl border border-slate-200">
-                  <div className="mb-6 border-b border-slate-200 pb-4">
-            <h2 className="text-2xl font-bold text-slate-900">
-              Race Kit
-            </h2>
-          </div>
-
-          {eventStatus === 'closed_registration' ? (
-            <div className="space-y-6 mt-6">
-              <div className="overflow-hidden rounded-xl border border-slate-200 shadow-md">
-                <img 
-                  src="/racekit.webp" 
-                  alt="Race Kit Ikhwan Fun Run 3.0" 
-                  className="w-full h-auto object-cover"
-                />
-              </div>
-              <div className="py-8 text-center bg-slate-50 rounded-xl border border-slate-200">
-                <h3 className="text-xl font-bold text-slate-800 mb-2">Penyertaan Telah Ditutup</h3>
-                <p className="text-slate-600">
-                  Terima kasih atas minat anda, namun pendaftaran untuk Ikhwan Fun Run 3.0 telah pun ditutup.
-                </p>
-              </div>
+                     );
+                  })}
+               </div>
+               <div className="bg-slate-100 p-4">
+                  <button
+                    onClick={() => setIsCheckModalOpen(true)}
+                    className="w-full text-[#0A192F] bg-slate-200 hover:bg-slate-300 px-4 py-3 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center whitespace-nowrap"
+                  >
+                    <Search className="w-4 h-4 mr-2" />
+                    Resit Penyertaan
+                  </button>
+                  <button
+                    onClick={() => setIsCertModalOpen(true)}
+                    className="w-full mt-3 text-[#0A192F] bg-[#8cc63f]/20 hover:bg-[#8cc63f]/30 border border-[#8cc63f]/50 px-4 py-3 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center whitespace-nowrap"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                    Sijil Penyertaan
+                  </button>
+               </div>
             </div>
-          ) : (
+         </div>
+
+        {/* Right Content Area */}
+        <div className="w-full md:flex-1 min-w-0">
+           {activeTab === 'borang' ? (
+              <div className="bg-white rounded-2xl p-6 md:p-8 shadow-xl border border-slate-200">
+                <div className="mb-6 border-b border-slate-200 pb-4">
+                  <h2 className="text-2xl font-bold text-slate-900">
+                    {eventStatus === 'event_ended' ? 'Penghargaan & E-Sijil' : (eventStatus === 'closed_registration' ? 'Race Kit' : 'Borang Penyertaan')}
+                  </h2>
+                </div>
+
+                {eventStatus === 'event_ended' ? (
+                  <div className="space-y-6 mt-6">
+                    {/* Grand Celebratory Card */}
+                    <div className="bg-gradient-to-br from-[#0A192F] via-[#10243E] to-[#0A192F] rounded-2xl p-6 md:p-8 text-white shadow-xl border border-slate-700 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-[#8cc63f]/10 rounded-full blur-3xl pointer-events-none"></div>
+                      
+                      <div className="relative z-10 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 bg-[#8cc63f]/20 border-2 border-[#8cc63f] rounded-full flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(140,198,63,0.3)]">
+                          <Trophy className="w-8 h-8 text-[#8cc63f]" />
+                        </div>
+                        
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-xs md:text-sm font-semibold text-yellow-300 mb-3 border border-white/10">
+                          <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
+                          <span>Ikhwan Fun Run 3.0 Selesai Dengan Jayanya</span>
+                        </div>
+                        
+                        <h3 className="text-2xl md:text-3xl font-extrabold mb-3 tracking-tight">
+                          Terima Kasih Atas Penyertaan Anda!
+                        </h3>
+                        
+                        <p className="text-slate-300 max-w-xl text-sm md:text-base leading-relaxed mb-6">
+                          Pihak Jawatankuasa Surau Al-Ikhwan merakamkan setinggi-tinggi penghargaan dan terima kasih kepada semua peserta, sukarelawan, dan penaja yang telah bersama-sama memeriahkan dan menjayakan Ikhwan Fun Run 3.0. Semoga ukhuwah dan kecergasan yang terjalin berkekalan sentiasa.
+                        </p>
+
+                        {/* Action Cards Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                          {/* Certificate Action */}
+                          <div className="bg-white/10 hover:bg-white/15 border border-white/20 rounded-xl p-5 text-left transition-all flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2.5 rounded-lg bg-[#8cc63f] text-[#0A192F]">
+                                  <Award className="w-6 h-6" />
+                                </div>
+                                <h4 className="font-bold text-white text-base">E-Sijil Digital</h4>
+                              </div>
+                              <p className="text-xs text-slate-300 mb-4">
+                                Muat turun e-sijil rasmi penyertaan anda (PDF / Imej). Masukkan No. Kad Pengenalan pendaftaran anda.
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => setIsCertModalOpen(true)}
+                              className="w-full bg-[#8cc63f] hover:bg-[#7ab135] text-[#0A192F] font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg text-sm"
+                            >
+                              <Download className="w-4 h-4" />
+                              <span>Dapatkan E-Sijil</span>
+                            </button>
+                          </div>
+
+                          {/* Receipt Action */}
+                          <div className="bg-white/10 hover:bg-white/15 border border-white/20 rounded-xl p-5 text-left transition-all flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2.5 rounded-lg bg-slate-200 text-[#0A192F]">
+                                  <Search className="w-6 h-6" />
+                                </div>
+                                <h4 className="font-bold text-white text-base">Semak Rekod Resit</h4>
+                              </div>
+                              <p className="text-xs text-slate-300 mb-4">
+                                Semak semula butiran pendaftaran atau bukti pembayaran rasmi anda.
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => setIsCheckModalOpen(true)}
+                              className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-all text-sm"
+                            >
+                              <Search className="w-4 h-4" />
+                              <span>Semak Resit</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Post Event Highlights Info */}
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-slate-700">
+                      <h4 className="text-base font-bold text-slate-900 mb-2">Maklumat Tambahan</h4>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        Bagi sebarang urusan lanjut atau pertanyaan mengenai penganjuran, anda boleh merujuk maklumat perhubungan di tab <strong>Maklumat Penganjur</strong> atau hubungi urusetia Surau Al-Ikhwan Taman Puncak Jalil.
+                      </p>
+                    </div>
+                  </div>
+                ) : eventStatus === 'closed_registration' ? (
+                  <div className="space-y-6 mt-6">
+                    <div className="overflow-hidden rounded-xl border border-slate-200 shadow-md">
+                      <img 
+                        src="/racekit.webp" 
+                        alt="Race Kit Ikhwan Fun Run 3.0" 
+                        className="w-full h-auto object-cover"
+                      />
+                    </div>
+                    <div className="py-8 text-center bg-slate-50 rounded-xl border border-slate-200">
+                      <h3 className="text-xl font-bold text-slate-800 mb-2">Penyertaan Telah Ditutup</h3>
+                      <p className="text-slate-600">
+                        Terima kasih atas minat anda, namun pendaftaran untuk Ikhwan Fun Run 3.0 telah pun ditutup.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
             <>
               {error && (
             <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-4 rounded-lg mb-6 flex items-start">
@@ -766,10 +854,9 @@ export default function IfrRegistration() {
           </div>
         </div>
       </div>
-      )}
       
       {/* Race Kit Info Modal */}
-      {isRaceKitModalOpen && (
+      {isRaceKitModalOpen && eventStatus !== 'event_ended' && (
         <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden flex flex-col shadow-2xl relative animate-in zoom-in-95 duration-200">
             <button 
